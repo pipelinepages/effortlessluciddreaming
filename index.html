@@ -185,6 +185,7 @@
         let pointer = new THREE.Vector2();
         let clock;
         let particles = [];
+        let isTransitioning = false; // Prevents duplicate step loads
 
         const steps = [
             { title: "Step 1: Clear your mind", hint: "Tap thoughts to erase them gently", quote: "Ease is the fuel. Effort kills the vibe." },
@@ -244,6 +245,8 @@
         }
 
         function loadStep(step) {
+            if (isTransitioning) return;
+            isTransitioning = false;
             currentStep = step;
             awareness = step * 33;
             updateProgress();
@@ -516,8 +519,9 @@
             }
 
             if (currentStep === 0) {
-                // Float thoughts
-                thoughts.forEach((t, i) => {
+                // Float thoughts - use reverse loop to safely remove
+                for (let i = thoughts.length - 1; i >= 0; i--) {
+                    const t = thoughts[i];
                     if (!t.userData.erased) {
                         t.position.y += Math.sin(Date.now() / 800 + i) * 0.008;
                         t.rotation.y += 0.003;
@@ -527,14 +531,19 @@
                         if (t.scale.x < 0.1) {
                             scene.remove(t);
                             thoughts.splice(i, 1);
-                            if (thoughts.length === 0) setTimeout(() => loadStep(1), 800);
                         }
                     }
-                });
+                }
+                // If all thoughts are gone, move to step 1 after a short delay
+                if (thoughts.length === 0 && currentStep === 0 && !isTransitioning) {
+                    isTransitioning = true;
+                    setTimeout(() => loadStep(1), 800);
+                }
             } 
             else if (currentStep === 1) {
-                // Gentle orb float
-                orbs.forEach((orb, i) => {
+                // Gentle orb float - reverse loop for safe removal
+                for (let i = orbs.length - 1; i >= 0; i--) {
+                    const orb = orbs[i];
                     if (!orb.userData.collected) {
                         orb.position.y += Math.sin(Date.now() / 600 + i) * 0.014;
                         orb.rotation.x += 0.008;
@@ -544,10 +553,13 @@
                         if (orb.scale.x < 0.1) {
                             scene.remove(orb);
                             orbs.splice(i, 1);
-                            if (orbs.length === 0) setTimeout(() => loadStep(2), 900);
                         }
                     }
-                });
+                }
+                if (orbs.length === 0 && currentStep === 1 && !isTransitioning) {
+                    isTransitioning = true;
+                    setTimeout(() => loadStep(2), 900);
+                }
             } 
             else if (currentStep === 2 && avatar) {
                 // Effortless physics — the core of "suggestion"
@@ -607,6 +619,7 @@
 
         function restartGame() {
             document.getElementById('end-screen').style.display = 'none';
+            isTransitioning = false;
             loadStep(0);
         }
 
