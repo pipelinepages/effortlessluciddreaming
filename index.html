@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Effortless Lucid • Suggestion</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400&display=swap');
+        
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000;
+            font-family: 'Inter', sans-serif;
+            touch-action: none;
+            color: #fff;
+        }
+        canvas {
+            display: block;
+        }
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        #header {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+        }
+        .logo {
+            font-family: 'Playfair Display', serif;
+            font-size: 22px;
+            letter-spacing: 2px;
+            opacity: 0.9;
+        }
+        .progress {
+            height: 3px;
+            background: rgba(255,255,255,0.2);
+            width: 160px;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            width: 33%;
+            background: linear-gradient(90deg, #a5b4fc, #c4d0ff);
+            transition: width 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        #step-text {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.6);
+            padding: 14px 28px;
+            border-radius: 9999px;
+            font-size: 15px;
+            text-align: center;
+            max-width: 280px;
+            line-height: 1.4;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.8s ease;
+        }
+        #hint {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 13px;
+            letter-spacing: 1px;
+            opacity: 0.6;
+            background: rgba(255,255,255,0.08);
+            padding: 8px 20px;
+            border-radius: 9999px;
+            pointer-events: none;
+            transition: all 0.4s ease;
+        }
+        #end-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10,10,20,0.95);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            text-align: center;
+            padding: 40px;
+            z-index: 100;
+        }
+        #end-screen h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 42px;
+            margin: 0 0 16px;
+            line-height: 1;
+        }
+        #end-screen p {
+            max-width: 260px;
+            opacity: 0.8;
+            line-height: 1.5;
+            font-size: 15px;
+        }
+        button {
+            margin-top: 30px;
+            background: white;
+            color: black;
+            border: none;
+            padding: 14px 36px;
+            font-size: 15px;
+            font-weight: 500;
+            border-radius: 9999px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        button:active {
+            transform: scale(0.95);
+        }
+        .particle {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: #a5b4fc;
+            border-radius: 50%;
+            pointer-events: none;
+            animation: float 4s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    
+    <div id="ui">
+        <!-- Header -->
+        <div id="header">
+            <div class="logo">LUCID</div>
+            <div>
+                <div class="progress">
+                    <div id="progress-bar" class="progress-bar"></div>
+                </div>
+            </div>
+            <div style="font-size:11px; opacity:0.5; letter-spacing:1px;">PART 2</div>
+        </div>
+
+        <!-- Step text -->
+        <div id="step-text"></div>
+
+        <!-- Hint -->
+        <div id="hint">TAP GENTLY • LET GO</div>
+
+        <!-- End screen -->
+        <div id="end-screen">
+            <h1>You woke up<br>inside the dream</h1>
+            <p style="margin-top:20px;">Suggestion worked.<br>No force. Just quiet permission.</p>
+            <button onclick="restartGame()">Try again tonight</button>
+            <p style="margin-top:40px; font-size:12px; opacity:0.6;">“You might just wake up inside your dream.”</p>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script>
+        // =============== THREE.JS SETUP ===============
+        let scene, camera, renderer;
+        let avatar, velocity;
+        let thoughts = [];
+        let orbs = [];
+        let hallwayGroup;
+        let currentStep = 0;
+        let awareness = 0;
+        let isDragging = false;
+        let lastTouchX = 0;
+        let lastTouchY = 0;
+        let raycaster;
+        let pointer = new THREE.Vector2();
+        let clock;
+        let particles = [];
+
+        const steps = [
+            { title: "Step 1: Clear your mind", hint: "Tap thoughts to erase them gently", quote: "Ease is the fuel. Effort kills the vibe." },
+            { title: "Step 2: Feed your curiosity", hint: "Tap glowing ideas to soak in the vibe", quote: "You’re not studying — you’re soaking." },
+            { title: "Step 3: Play with the idea", hint: "Swipe gently to suggest movement", quote: "What if this was a dream?" }
+        ];
+
+        function init() {
+            const canvas = document.getElementById('canvas');
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: false });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = false;
+
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x0a0a1f, 30, 120);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
+            camera.position.set(0, 8, 25);
+
+            clock = new THREE.Clock();
+            raycaster = new THREE.Raycaster();
+
+            // Ambient dreamy light
+            const ambient = new THREE.AmbientLight(0x8899ff, 0.6);
+            scene.add(ambient);
+            
+            const hemi = new THREE.HemisphereLight(0xaaccff, 0x112244, 0.7);
+            scene.add(hemi);
+
+            // Create subtle background stars
+            createStarField();
+
+            window.addEventListener('resize', onResize);
+            canvas.addEventListener('pointerdown', onPointerDown);
+            canvas.addEventListener('pointermove', onPointerMove);
+            canvas.addEventListener('pointerup', onPointerUp);
+            canvas.addEventListener('pointerleave', onPointerUp);
+
+            loadStep(0);
+            animate();
+        }
+
+        function createStarField() {
+            const geometry = new THREE.BufferGeometry();
+            const vertices = [];
+            for (let i = 0; i < 1200; i++) {
+                const x = THREE.MathUtils.randFloatSpread(200);
+                const y = THREE.MathUtils.randFloatSpread(200);
+                const z = THREE.MathUtils.randFloatSpread(200);
+                vertices.push(x, y, z);
+            }
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            const material = new THREE.PointsMaterial({ size: 0.6, color: 0xaaaaaa, transparent: true, opacity: 0.7 });
+            const stars = new THREE.Points(geometry, material);
+            scene.add(stars);
+        }
+
+        function loadStep(step) {
+            currentStep = step;
+            awareness = step * 33;
+            updateProgress();
+
+            // Clear old objects
+            thoughts.forEach(t => scene.remove(t));
+            orbs.forEach(o => scene.remove(o));
+            if (hallwayGroup) scene.remove(hallwayGroup);
+            thoughts = [];
+            orbs = [];
+            if (avatar) scene.remove(avatar);
+
+            document.getElementById('step-text').style.opacity = 0;
+
+            setTimeout(() => {
+                const st = document.getElementById('step-text');
+                st.innerHTML = `
+                    <strong>${steps[step].title}</strong><br>
+                    <span style="opacity:0.7; font-size:13px;">${steps[step].quote}</span>
+                `;
+                st.style.opacity = 1;
+            }, 300);
+
+            document.getElementById('hint').textContent = steps[step].hint;
+
+            if (step === 0) {
+                // STEP 1: Clear your mind — floating thoughts
+                camera.position.set(0, 6, 25);
+                for (let i = 0; i < 12; i++) {
+                    const thought = new THREE.Mesh(
+                        new THREE.IcosahedronGeometry(1.8, 0),
+                        new THREE.MeshPhongMaterial({ 
+                            color: new THREE.Color().setHSL(Math.random()*0.1 + 0.55, 0.7, 0.7),
+                            shininess: 10,
+                            emissive: 0x334466
+                        })
+                    );
+                    thought.position.set(
+                        THREE.MathUtils.randFloatSpread(26),
+                        THREE.MathUtils.randFloat(3, 18),
+                        THREE.MathUtils.randFloat(-10, 10)
+                    );
+                    thought.userData = { erased: false, scaleSpeed: 0 };
+                    thought.castShadow = true;
+                    scene.add(thought);
+                    thoughts.push(thought);
+                }
+            } 
+            else if (step === 1) {
+                // STEP 2: Feed curiosity — glowing orbs
+                camera.position.set(0, 10, 30);
+                for (let i = 0; i < 9; i++) {
+                    const orb = new THREE.Mesh(
+                        new THREE.SphereGeometry(1.4, 32, 32),
+                        new THREE.MeshBasicMaterial({ 
+                            color: 0xa5f3fc,
+                            transparent: true,
+                            opacity: 0.9
+                        })
+                    );
+                    orb.position.set(
+                        THREE.MathUtils.randFloatSpread(32),
+                        THREE.MathUtils.randFloat(4, 22),
+                        THREE.MathUtils.randFloat(-15, 15)
+                    );
+                    orb.userData = { collected: false };
+                    // Glow effect with extra point light
+                    const glowLight = new THREE.PointLight(0xa5f3fc, 1.5, 50);
+                    glowLight.position.copy(orb.position);
+                    scene.add(glowLight);
+                    orb.userData.glow = glowLight;
+                    scene.add(orb);
+                    orbs.push(orb);
+                }
+            } 
+            else if (step === 2) {
+                // STEP 3: Play with the idea — hallway + avatar
+                camera.position.set(0, 12, 35);
+                
+                // Hallway group
+                hallwayGroup = new THREE.Group();
+                scene.add(hallwayGroup);
+
+                // Floor
+                const floor = new THREE.Mesh(
+                    new THREE.PlaneGeometry(40, 180),
+                    new THREE.MeshPhongMaterial({ color: 0x112233, shininess: 5 })
+                );
+                floor.rotation.x = -Math.PI / 2;
+                floor.position.z = -70;
+                hallwayGroup.add(floor);
+
+                // Left wall
+                const leftWall = new THREE.Mesh(
+                    new THREE.PlaneGeometry(180, 50),
+                    new THREE.MeshPhongMaterial({ color: 0x1a2333, side: THREE.DoubleSide })
+                );
+                leftWall.rotation.y = Math.PI / 2;
+                leftWall.position.set(-20, 15, -70);
+                hallwayGroup.add(leftWall);
+
+                // Right wall
+                const rightWall = leftWall.clone();
+                rightWall.position.x = 20;
+                hallwayGroup.add(rightWall);
+
+                // Dreamy ceiling glow planes
+                for (let i = 0; i < 8; i++) {
+                    const ceiling = new THREE.Mesh(
+                        new THREE.PlaneGeometry(40, 10),
+                        new THREE.MeshBasicMaterial({ color: 0x6677aa, transparent: true, opacity: 0.15 })
+                    );
+                    ceiling.rotation.x = Math.PI / 2;
+                    ceiling.position.set(0, 38, -20 - i * 18);
+                    hallwayGroup.add(ceiling);
+                }
+
+                // Avatar (dreamer silhouette)
+                avatar = new THREE.Group();
+                const body = new THREE.Mesh(
+                    new THREE.CylinderGeometry(1.8, 1.2, 7, 8),
+                    new THREE.MeshPhongMaterial({ color: 0x222244 })
+                );
+                body.position.y = 4;
+                avatar.add(body);
+
+                const head = new THREE.Mesh(
+                    new THREE.SphereGeometry(1.8, 24, 24),
+                    new THREE.MeshPhongMaterial({ color: 0x334455 })
+                );
+                head.position.y = 9;
+                avatar.add(head);
+
+                // Floating aura
+                const aura = new THREE.Mesh(
+                    new THREE.SphereGeometry(4.5, 24, 24),
+                    new THREE.MeshBasicMaterial({ 
+                        color: 0xa5b4fc,
+                        transparent: true,
+                        opacity: 0.12,
+                        blending: THREE.AdditiveBlending
+                    })
+                );
+                aura.position.y = 5;
+                avatar.add(aura);
+
+                avatar.position.set(0, 6, 10);
+                scene.add(avatar);
+
+                velocity = new THREE.Vector3(0, 0, -1.8); // gentle forward suggestion
+            }
+        }
+
+        function updateProgress() {
+            const percent = Math.min(awareness, 99);
+            document.getElementById('progress-bar').style.width = percent + '%';
+        }
+
+        function onPointerDown(e) {
+            isDragging = true;
+            lastTouchX = e.clientX;
+            lastTouchY = e.clientY;
+
+            pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+            pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+            if (currentStep === 0 || currentStep === 1) {
+                raycaster.setFromCamera(pointer, camera);
+                let intersects;
+                
+                if (currentStep === 0) intersects = raycaster.intersectObjects(thoughts);
+                else intersects = raycaster.intersectObjects(orbs);
+
+                if (intersects.length > 0) {
+                    const obj = intersects[0].object;
+                    if (currentStep === 0 && !obj.userData.erased) {
+                        obj.userData.erased = true;
+                        obj.userData.scaleSpeed = 0.12;
+                        awareness += 8;
+                        updateProgress();
+                        createEraseParticles(obj.position);
+                    } 
+                    else if (currentStep === 1 && !obj.userData.collected) {
+                        obj.userData.collected = true;
+                        awareness += 11;
+                        updateProgress();
+                        createCollectParticles(obj.position);
+                        if (obj.userData.glow) scene.remove(obj.userData.glow);
+                    }
+                }
+            }
+        }
+
+        function onPointerMove(e) {
+            if (!isDragging) return;
+
+            const dx = e.clientX - lastTouchX;
+            const dy = e.clientY - lastTouchY;
+
+            if (currentStep === 2 && avatar) {
+                // Gentle suggestion physics
+                velocity.x += dx * 0.012;
+                velocity.y -= dy * 0.018; // inverted because screen Y
+                // Damp sudden force
+                velocity.x *= 0.82;
+                velocity.y *= 0.82;
+            }
+
+            lastTouchX = e.clientX;
+            lastTouchY = e.clientY;
+        }
+
+        function onPointerUp() {
+            isDragging = false;
+        }
+
+        function createEraseParticles(pos) {
+            for (let i = 0; i < 18; i++) {
+                const p = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.3, 6, 6),
+                    new THREE.MeshBasicMaterial({ color: 0xcccccc })
+                );
+                p.position.copy(pos);
+                const vel = new THREE.Vector3(
+                    THREE.MathUtils.randFloatSpread(8),
+                    THREE.MathUtils.randFloatSpread(8),
+                    THREE.MathUtils.randFloatSpread(8)
+                );
+                p.userData = { vel: vel, life: 45 };
+                scene.add(p);
+                particles.push(p);
+            }
+        }
+
+        function createCollectParticles(pos) {
+            for (let i = 0; i < 28; i++) {
+                const p = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.25, 6, 6),
+                    new THREE.MeshBasicMaterial({ color: 0xa5f3fc })
+                );
+                p.position.copy(pos);
+                p.userData = { 
+                    vel: new THREE.Vector3(
+                        THREE.MathUtils.randFloatSpread(6),
+                        THREE.MathUtils.randFloat(3, 12),
+                        THREE.MathUtils.randFloatSpread(6)
+                    ),
+                    life: 60,
+                    toCamera: true
+                };
+                scene.add(p);
+                particles.push(p);
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+
+            // Update particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.position.add(p.userData.vel.clone().multiplyScalar(delta * 18));
+                p.userData.life--;
+                p.scale.setScalar(p.userData.life / 50);
+                if (p.userData.life <= 0) {
+                    scene.remove(p);
+                    particles.splice(i, 1);
+                }
+            }
+
+            if (currentStep === 0) {
+                // Float thoughts
+                thoughts.forEach((t, i) => {
+                    if (!t.userData.erased) {
+                        t.position.y += Math.sin(Date.now() / 800 + i) * 0.008;
+                        t.rotation.y += 0.003;
+                    } else {
+                        t.scale.multiplyScalar(1 - t.userData.scaleSpeed);
+                        t.userData.scaleSpeed *= 0.92;
+                        if (t.scale.x < 0.1) {
+                            scene.remove(t);
+                            thoughts.splice(i, 1);
+                            if (thoughts.length === 0) setTimeout(() => loadStep(1), 800);
+                        }
+                    }
+                });
+            } 
+            else if (currentStep === 1) {
+                // Gentle orb float
+                orbs.forEach((orb, i) => {
+                    if (!orb.userData.collected) {
+                        orb.position.y += Math.sin(Date.now() / 600 + i) * 0.014;
+                        orb.rotation.x += 0.008;
+                    } else {
+                        orb.position.lerp(camera.position, 0.07);
+                        orb.scale.multiplyScalar(0.88);
+                        if (orb.scale.x < 0.1) {
+                            scene.remove(orb);
+                            orbs.splice(i, 1);
+                            if (orbs.length === 0) setTimeout(() => loadStep(2), 900);
+                        }
+                    }
+                });
+            } 
+            else if (currentStep === 2 && avatar) {
+                // Effortless physics — the core of "suggestion"
+                velocity.x *= 0.94;
+                velocity.y *= 0.94;
+                velocity.z = Math.max(velocity.z * 0.985, -3.2); // always gentle forward drift
+
+                avatar.position.add(velocity.clone().multiplyScalar(delta * 26));
+
+                // Keep avatar in hallway bounds softly
+                avatar.position.x = THREE.MathUtils.clamp(avatar.position.x, -14, 14);
+                avatar.position.y = THREE.MathUtils.clamp(avatar.position.y, 3, 34);
+
+                // Camera follows with smooth lag
+                const idealCamX = avatar.position.x * 0.4;
+                const idealCamY = avatar.position.y + 11;
+                const idealCamZ = avatar.position.z + 26;
+                
+                camera.position.x += (idealCamX - camera.position.x) * 0.08;
+                camera.position.y += (idealCamY - camera.position.y) * 0.08;
+                camera.position.z += (idealCamZ - camera.position.z) * 0.12;
+
+                camera.lookAt(avatar.position.x * 0.6, avatar.position.y + 4, avatar.position.z - 20);
+
+                // Check win condition (reached deep dream state)
+                if (avatar.position.z < -135) {
+                    document.getElementById('end-screen').style.display = 'flex';
+                    createWinParticles();
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function createWinParticles() {
+            for (let i = 0; i < 80; i++) {
+                const p = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.6, 8, 8),
+                    new THREE.MeshBasicMaterial({ color: 0xffffff })
+                );
+                p.position.set(
+                    THREE.MathUtils.randFloatSpread(30),
+                    THREE.MathUtils.randFloatSpread(30) + 10,
+                    -140
+                );
+                p.userData = { vel: new THREE.Vector3(0, 3 + Math.random() * 7, -2) };
+                scene.add(p);
+                particles.push(p);
+            }
+        }
+
+        function onResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function restartGame() {
+            document.getElementById('end-screen').style.display = 'none';
+            loadStep(0);
+        }
+
+        // Start the experience
+        window.onload = init;
+    </script>
+</body>
+</html>
