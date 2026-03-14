@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Effortless Lucid Dreaming – ultra smooth</title>
+    <title>Effortless Lucid Dreaming – full board view</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;600&display=swap');
@@ -24,7 +24,8 @@
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            touch-action: none;
+            /* Hint to the compositor to keep this layer on the GPU */
+            will-change: transform;
         }
 
         .screen {
@@ -65,15 +66,8 @@
             line-height: 1.1;
         }
 
-        h1 {
-            font-size: clamp(2.8rem, 9vw, 5.5rem);
-            font-weight: 700;
-        }
-
-        h2 {
-            font-size: clamp(2.2rem, 7vw, 4rem);
-            font-weight: 700;
-        }
+        h1 { font-size: clamp(2.8rem, 9vw, 5.5rem); font-weight: 700; }
+        h2 { font-size: clamp(2.2rem, 7vw, 4rem); font-weight: 700; }
 
         .subtitle {
             font-size: 1.1rem;
@@ -107,11 +101,8 @@
             transform: scale(1.04);
         }
 
-        .btn:active {
-            transform: scale(0.97);
-        }
+        .btn:active { transform: scale(0.97); }
 
-        /* Game HUD */
         #game-hud {
             position: fixed;
             inset: 0;
@@ -124,14 +115,9 @@
             transition: opacity 0.6s ease;
         }
 
-        #game-hud.hidden {
-            opacity: 0;
-        }
+        #game-hud.hidden { opacity: 0; }
 
-        .hud-top {
-            display: flex;
-            justify-content: center;
-        }
+        .hud-top { display: flex; justify-content: center; }
 
         .hud-instruction {
             background: rgba(6, 14, 24, 0.65);
@@ -142,22 +128,10 @@
             border: 1px solid rgba(230, 217, 200, 0.08);
         }
 
-        .hud-instruction p {
-            font-size: 0.9rem;
-            opacity: 0.85;
-        }
+        .hud-instruction p { font-size: 0.9rem; opacity: 0.85; }
+        .hud-instruction p.hint { font-size: 0.75rem; opacity: 0.45; margin-top: 2px; }
 
-        .hud-instruction p.hint {
-            font-size: 0.75rem;
-            opacity: 0.45;
-            margin-top: 2px;
-        }
-
-        .hud-bottom {
-            max-width: 280px;
-            margin: 0 auto;
-            width: 100%;
-        }
+        .hud-bottom { max-width: 280px; margin: 0 auto; width: 100%; }
 
         .progress-track {
             width: 100%;
@@ -182,18 +156,8 @@
             margin-top: 6px;
         }
 
-        .progress-label {
-            font-size: 0.65rem;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            opacity: 0.35;
-        }
-
-        .progress-percent {
-            font-size: 1.2rem;
-            font-weight: 600;
-            opacity: 0.9;
-        }
+        .progress-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 3px; opacity: 0.35; }
+        .progress-percent { font-size: 1.2rem; font-weight: 600; opacity: 0.9; }
 
         blockquote {
             max-width: 380px;
@@ -207,22 +171,12 @@
 
         @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(16px); }
-            to { opacity: 1; transform: translateY(0); }
+            to   { opacity: 1; transform: translateY(0);    }
         }
 
-        .animate-in {
-            animation: fadeInUp 0.9s cubic-bezier(0.23, 1, 0.32, 1) forwards;
-        }
-
-        .animate-in-delay {
-            opacity: 0;
-            animation: fadeInUp 0.9s cubic-bezier(0.23, 1, 0.32, 1) 0.2s forwards;
-        }
-
-        .animate-in-delay2 {
-            opacity: 0;
-            animation: fadeInUp 0.9s cubic-bezier(0.23, 1, 0.32, 1) 0.4s forwards;
-        }
+        .animate-in        { animation: fadeInUp 0.9s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
+        .animate-in-delay  { opacity: 0; animation: fadeInUp 0.9s cubic-bezier(0.23, 1, 0.32, 1) 0.2s forwards; }
+        .animate-in-delay2 { opacity: 0; animation: fadeInUp 0.9s cubic-bezier(0.23, 1, 0.32, 1) 0.4s forwards; }
     </style>
 </head>
 <body>
@@ -267,7 +221,7 @@
 </div>
 
 <script>
-// ─── Setup ───────────────────────────────────────────────────
+// ─── Renderer ────────────────────────────────────────────────
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -281,7 +235,7 @@ scene.background = new THREE.Color('#060e18');
 scene.fog = new THREE.Fog('#060e18', 6, 22);
 
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 50);
-camera.position.set(0, 0, 4.2); // initial, will be adjusted
+camera.position.set(0, 0, 4.2);
 
 // ─── Lighting ────────────────────────────────────────────────
 const ambientLight = new THREE.AmbientLight(0xe6d9c8, 0.25);
@@ -304,7 +258,7 @@ const STAR_COUNT = 400;
 const starGeo = new THREE.BufferGeometry();
 const starPos = new Float32Array(STAR_COUNT * 3);
 for (let i = 0; i < STAR_COUNT; i++) {
-    starPos[i * 3] = (Math.random() - 0.5) * 35;
+    starPos[i * 3]     = (Math.random() - 0.5) * 35;
     starPos[i * 3 + 1] = (Math.random() - 0.5) * 25;
     starPos[i * 3 + 2] = -4 - Math.random() * 18;
 }
@@ -316,16 +270,16 @@ const starMat = new THREE.PointsMaterial({
 const stars = new THREE.Points(starGeo, starMat);
 scene.add(stars);
 
-// ─── Dust Particles ─────────────────────────────────────────
+// ─── Dust Particles ──────────────────────────────────────────
 const DUST_COUNT = 150;
 const dustGeo = new THREE.BufferGeometry();
-const dustPos = new Float32Array(DUST_COUNT * 3);
-const dustVel = new Float32Array(DUST_COUNT * 3);
+const dustPos  = new Float32Array(DUST_COUNT * 3);
+const dustVel  = new Float32Array(DUST_COUNT * 3);
 for (let i = 0; i < DUST_COUNT; i++) {
-    dustPos[i * 3] = (Math.random() - 0.5) * 9;
+    dustPos[i * 3]     = (Math.random() - 0.5) * 9;
     dustPos[i * 3 + 1] = (Math.random() - 0.5) * 7;
     dustPos[i * 3 + 2] = (Math.random() - 0.5) * 3 - 1;
-    dustVel[i * 3] = (Math.random() - 0.5) * 0.004;
+    dustVel[i * 3]     = (Math.random() - 0.5) * 0.004;
     dustVel[i * 3 + 1] = Math.random() * 0.006 + 0.002;
     dustVel[i * 3 + 2] = (Math.random() - 0.5) * 0.002;
 }
@@ -337,11 +291,11 @@ const dustMat = new THREE.PointsMaterial({
 const dust = new THREE.Points(dustGeo, dustMat);
 scene.add(dust);
 
-// ─── Chalkboard (with frame dimensions) ─────────────────────
+// ─── Chalkboard ──────────────────────────────────────────────
 const BOARD_W = 4.8, BOARD_H = 3.2;
-const FRAME_OVERHANG = 0.22; // from frame pieces
-const TOTAL_BOARD_W = BOARD_W + FRAME_OVERHANG;  // ~5.02
-const TOTAL_BOARD_H = BOARD_H + FRAME_OVERHANG;  // ~3.42
+const FRAME_OVERHANG = 0.22;
+const TOTAL_BOARD_W = BOARD_W + FRAME_OVERHANG;
+const TOTAL_BOARD_H = BOARD_H + FRAME_OVERHANG;
 
 const TEX_W = 512, TEX_H = 340;
 const ERASE_RADIUS = 30;
@@ -351,7 +305,7 @@ boardGroup.visible = false;
 scene.add(boardGroup);
 
 // Base (cleared surface)
-const baseMat = new THREE.MeshStandardMaterial({ color: '#0c1820', roughness: 0.95 });
+const baseMat  = new THREE.MeshStandardMaterial({ color: '#0c1820', roughness: 0.95 });
 const baseMesh = new THREE.Mesh(new THREE.PlaneGeometry(BOARD_W, BOARD_H), baseMat);
 baseMesh.position.z = -0.005;
 boardGroup.add(baseMesh);
@@ -364,32 +318,26 @@ const chalkCtx = chalkCanvas.getContext('2d');
 function drawChalkboard() {
     chalkCtx.fillStyle = '#162428';
     chalkCtx.fillRect(0, 0, TEX_W, TEX_H);
-
-    // Subtle grain noise
     for (let i = 0; i < 5000; i++) {
         chalkCtx.fillStyle = `rgba(255,255,255,${Math.random() * 0.025})`;
         chalkCtx.fillRect(Math.random() * TEX_W, Math.random() * TEX_H, 1, 1);
     }
-
-    // Chalk writings
     chalkCtx.textBaseline = 'top';
     const writings = [
-        { t: '9:00 — morning meeting', x: 35, y: 28, s: 17 },
-        { t: 'reply to emails ✓', x: 295, y: 22, s: 15 },
-        { t: 'grocery list:', x: 40, y: 85, s: 18 },
-        { t: '• milk, bread, eggs', x: 55, y: 112, s: 15 },
-        { t: '• coffee beans', x: 55, y: 135, s: 15 },
-        { t: 'call mom back', x: 300, y: 90, s: 16 },
-        { t: 'workout — 30 min run', x: 42, y: 185, s: 16 },
-        { t: 'finish report !!!', x: 290, y: 175, s: 17 },
-        { t: 'dentist @ 3pm', x: 80, y: 240, s: 16 },
-        { t: 'pick up laundry', x: 310, y: 240, s: 15 },
+        { t: '9:00 — morning meeting',     x: 35,  y: 28,  s: 17 },
+        { t: 'reply to emails ✓',           x: 295, y: 22,  s: 15 },
+        { t: 'grocery list:',               x: 40,  y: 85,  s: 18 },
+        { t: '• milk, bread, eggs',         x: 55,  y: 112, s: 15 },
+        { t: '• coffee beans',              x: 55,  y: 135, s: 15 },
+        { t: 'call mom back',               x: 300, y: 90,  s: 16 },
+        { t: 'workout — 30 min run',        x: 42,  y: 185, s: 16 },
+        { t: 'finish report !!!',           x: 290, y: 175, s: 17 },
+        { t: 'dentist @ 3pm',              x: 80,  y: 240, s: 16 },
+        { t: 'pick up laundry',            x: 310, y: 240, s: 15 },
         { t: 'anxiety about tomorrow...', x: 120, y: 295, s: 16 },
     ];
-
     writings.forEach(({ t, x, y, s }) => {
         chalkCtx.font = `${s}px Inter, sans-serif`;
-        // Multi-pass chalk effect
         for (let p = 0; p < 3; p++) {
             const ox = (Math.random() - 0.5) * 0.8;
             const oy = (Math.random() - 0.5) * 0.8;
@@ -405,23 +353,9 @@ const chalkTexture = new THREE.CanvasTexture(chalkCanvas);
 // Erase mask
 const maskCanvas = document.createElement('canvas');
 maskCanvas.width = TEX_W; maskCanvas.height = TEX_H;
-const maskCtx = maskCanvas.getContext('2d');
+const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
 
-// Pre‑render soft eraser brush (white circle with alpha gradient)
-const brushCanvas = document.createElement('canvas');
-const brushSize = ERASE_RADIUS * 2;
-brushCanvas.width = brushCanvas.height = brushSize;
-const brushCtx = brushCanvas.getContext('2d');
-const gradient = brushCtx.createRadialGradient(ERASE_RADIUS, ERASE_RADIUS, 0, ERASE_RADIUS, ERASE_RADIUS, ERASE_RADIUS);
-gradient.addColorStop(0, 'rgba(255,255,255,0.55)');
-gradient.addColorStop(0.5, 'rgba(255,255,255,0.25)');
-gradient.addColorStop(1, 'rgba(255,255,255,0)');
-brushCtx.fillStyle = gradient;
-brushCtx.beginPath();
-brushCtx.arc(ERASE_RADIUS, ERASE_RADIUS, ERASE_RADIUS, 0, Math.PI * 2);
-brushCtx.fill();
-
-// Composite
+// Composite canvas
 const compCanvas = document.createElement('canvas');
 compCanvas.width = TEX_W; compCanvas.height = TEX_H;
 const compCtx = compCanvas.getContext('2d');
@@ -437,17 +371,19 @@ function compositeBoard() {
 }
 compositeBoard();
 
-const chalkMat = new THREE.MeshStandardMaterial({ map: compTexture, transparent: true, side: THREE.DoubleSide, roughness: 0.85 });
+const chalkMat  = new THREE.MeshStandardMaterial({
+    map: compTexture, transparent: true, side: THREE.DoubleSide, roughness: 0.85
+});
 const chalkMesh = new THREE.Mesh(new THREE.PlaneGeometry(BOARD_W, BOARD_H), chalkMat);
 boardGroup.add(chalkMesh);
 
 // Wooden frame
-const frameMat = new THREE.MeshStandardMaterial({ color: '#221a10', roughness: 0.92, metalness: 0.05 });
+const frameMat  = new THREE.MeshStandardMaterial({ color: '#221a10', roughness: 0.92, metalness: 0.05 });
 const frameData = [
-    { p: [0, BOARD_H/2 + 0.055, 0.01], s: [BOARD_W + 0.22, 0.11, 0.07] },
-    { p: [0, -BOARD_H/2 - 0.055, 0.01], s: [BOARD_W + 0.22, 0.11, 0.07] },
-    { p: [-BOARD_W/2 - 0.055, 0, 0.01], s: [0.11, BOARD_H + 0.22, 0.07] },
-    { p: [BOARD_W/2 + 0.055, 0, 0.01], s: [0.11, BOARD_H + 0.22, 0.07] },
+    { p: [0, BOARD_H/2 + 0.055, 0.01],    s: [BOARD_W + 0.22, 0.11, 0.07] },
+    { p: [0, -BOARD_H/2 - 0.055, 0.01],   s: [BOARD_W + 0.22, 0.11, 0.07] },
+    { p: [-BOARD_W/2 - 0.055, 0, 0.01],   s: [0.11, BOARD_H + 0.22, 0.07] },
+    { p: [BOARD_W/2 + 0.055, 0, 0.01],    s: [0.11, BOARD_H + 0.22, 0.07] },
 ];
 frameData.forEach(({ p, s }) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(...s), frameMat);
@@ -455,12 +391,10 @@ frameData.forEach(({ p, s }) => {
     boardGroup.add(m);
 });
 
-// Chalk tray
 const tray = new THREE.Mesh(new THREE.BoxGeometry(BOARD_W * 0.5, 0.05, 0.1), frameMat);
 tray.position.set(0, -BOARD_H/2 - 0.16, 0.07);
 boardGroup.add(tray);
 
-// Small chalk pieces on tray
 const chalkPieceMat = new THREE.MeshStandardMaterial({ color: '#d4cbb8', roughness: 0.95 });
 [-0.4, 0.1, 0.5].forEach(ox => {
     const piece = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.12 + Math.random() * 0.06, 6), chalkPieceMat);
@@ -469,129 +403,102 @@ const chalkPieceMat = new THREE.MeshStandardMaterial({ color: '#d4cbb8', roughne
     boardGroup.add(piece);
 });
 
-// ─── Camera auto‑adjust to always show full board + frame ──────────
+// ─── Camera fit ──────────────────────────────────────────────
 function adjustCameraForAspect() {
-    const aspect = window.innerWidth / window.innerHeight;
-    const fovRad = camera.fov * Math.PI / 180;
+    const aspect    = window.innerWidth / window.innerHeight;
+    const fovRad    = camera.fov * Math.PI / 180;
     const tanHalfFov = Math.tan(fovRad / 2);
-    const padding = 1.1; // 10% margin
-    const targetHeight = Math.max(
-        TOTAL_BOARD_H * padding,
-        (TOTAL_BOARD_W * padding) / aspect
-    );
-    const distance = targetHeight / (2 * tanHalfFov);
-    camera.position.z = distance;
+    const padding   = 1.1;
+    const targetH   = Math.max(TOTAL_BOARD_H * padding, (TOTAL_BOARD_W * padding) / aspect);
+    camera.position.z = targetH / (2 * tanHalfFov);
 }
 adjustCameraForAspect();
 
-// ─── Ultra‑smooth erasing with batching ─────────────────────
-let gameState = 'title'; // title | playing | success
-let progress = 0;
-let isDragging = false;
+// ─── Erase / Progress ────────────────────────────────────────
+let gameState  = 'title';
+let progress   = 0;
 
-// Pending erase points (canvas coordinates)
-let pendingPoints = [];
-let processingScheduled = false;
+// *** KEY CHANGE: track erased pixels incrementally ***
+// We count pixels as we paint the mask rather than re-scanning every frame.
+const TOTAL_PIXELS = TEX_W * TEX_H;
+let erasedEstimate = 0;      // rough running tally (0..1)
 
-// Pre‑computed brush dimensions for fast drawing
-const brushHalf = ERASE_RADIUS;
-
-function scheduleEraseProcessing() {
-    if (processingScheduled) return;
-    processingScheduled = true;
-    requestAnimationFrame(processErasePoints);
+function eraseAt(uv) {
+    const cx = uv.x * TEX_W;
+    const cy = (1 - uv.y) * TEX_H;
+    const grad = maskCtx.createRadialGradient(cx, cy, 0, cx, cy, ERASE_RADIUS);
+    grad.addColorStop(0, 'rgba(255,255,255,0.55)');
+    grad.addColorStop(0.5, 'rgba(255,255,255,0.25)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    maskCtx.fillStyle = grad;
+    maskCtx.beginPath();
+    maskCtx.arc(cx, cy, ERASE_RADIUS, 0, Math.PI * 2);
+    maskCtx.fill();
 }
 
-function processErasePoints() {
-    processingScheduled = false;
-    if (pendingPoints.length === 0 || gameState !== 'playing') return;
-
-    // Draw all pending points onto mask canvas using the pre‑rendered brush
-    for (const { x, y } of pendingPoints) {
-        maskCtx.drawImage(brushCanvas, x - brushHalf, y - brushHalf);
-    }
-    pendingPoints = [];
-
-    // Update the composite texture (GPU upload)
-    compositeBoard();
-
-    // Throttled progress calculation
-    scheduleProgressUpdate();
-}
-
-// Throttled progress calculation
-let progressUpdateScheduled = false;
-function scheduleProgressUpdate() {
-    if (progressUpdateScheduled) return;
-    progressUpdateScheduled = true;
-    requestAnimationFrame(() => {
-        if (gameState === 'playing') {
-            progress = Math.min(calcProgress(), 1);
-            updateHUD();
-        }
-        progressUpdateScheduled = false;
-    });
-}
-
-function calcProgress() {
+// Cheap pixel-count: only called every N frames from the render loop,
+// never from the touch handler.
+const PROGRESS_SAMPLE_STRIDE = 16; // sample every 16th pixel (x4 less work than original stride=20 but row-aligned)
+function calcProgressFromMask() {
     const data = maskCtx.getImageData(0, 0, TEX_W, TEX_H).data;
     let erased = 0, total = 0;
-    for (let i = 3; i < data.length; i += 25) { // stride for speed
+    for (let i = 3; i < data.length; i += PROGRESS_SAMPLE_STRIDE * 4) {
         total++;
         if (data[i] > 100) erased++;
     }
     return erased / total;
 }
 
-function queueEraseAt(uv) {
-    const x = uv.x * TEX_W;
-    const y = (1 - uv.y) * TEX_H;
-    // Clamp to avoid drawing outside the mask (optional)
-    const clampedX = Math.min(Math.max(x, brushHalf), TEX_W - brushHalf);
-    const clampedY = Math.min(Math.max(y, brushHalf), TEX_H - brushHalf);
-    pendingPoints.push({ x: clampedX, y: clampedY });
-    scheduleEraseProcessing();
-}
+// ─── Input: decouple from canvas work ────────────────────────
+// Pending UV coords collected during the current frame.
+// The render loop drains this queue once per rAF tick.
+const pendingUVs   = [];
+let   isDragging   = false;
+const raycaster    = new THREE.Raycaster();
+const pointer      = new THREE.Vector2();
 
-// Raycasting and point collection
-const raycaster = new THREE.Raycaster();
-const pointer = new THREE.Vector2();
-
-function handleInteraction(clientX, clientY) {
+// Collect a hit without touching the canvas at all.
+function queueInteraction(clientX, clientY) {
     if (gameState !== 'playing') return;
     const rect = canvas.getBoundingClientRect();
-    pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-    pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    pointer.x  =  ((clientX - rect.left) / rect.width)  * 2 - 1;
+    pointer.y  = -((clientY - rect.top)  / rect.height) * 2 + 1;
     raycaster.setFromCamera(pointer, camera);
     const hits = raycaster.intersectObject(chalkMesh);
     if (hits.length > 0 && hits[0].uv) {
-        queueEraseAt(hits[0].uv);
+        // Clone the UV so it isn't mutated before the render loop reads it
+        pendingUVs.push(hits[0].uv.clone());
     }
 }
 
-// Event listeners (non‑passive move to prevent any scroll delay)
-canvas.addEventListener('pointerdown', e => { isDragging = true; handleInteraction(e.clientX, e.clientY); });
-canvas.addEventListener('pointermove', e => { if (isDragging) { e.preventDefault(); handleInteraction(e.clientX, e.clientY); } }, { passive: false });
-canvas.addEventListener('pointerup', () => isDragging = false);
-canvas.addEventListener('pointerleave', () => isDragging = false);
+// *** Only pointer events needed — they fire on mouse AND touch on all modern browsers ***
+canvas.addEventListener('pointerdown', e => {
+    isDragging = true;
+    queueInteraction(e.clientX, e.clientY);
+}, { passive: true });
 
-canvas.addEventListener('touchstart', e => { isDragging = true; handleInteraction(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
-canvas.addEventListener('touchmove', e => { if (isDragging && e.touches.length) { e.preventDefault(); handleInteraction(e.touches[0].clientX, e.touches[0].clientY); } }, { passive: false });
-canvas.addEventListener('touchend', () => isDragging = false);
-canvas.addEventListener('touchcancel', () => isDragging = false);
+canvas.addEventListener('pointermove', e => {
+    if (!isDragging) return;
+    // coalesced events give us the full sub-frame path on supported browsers (Chrome/Edge)
+    const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+    for (const ce of events) queueInteraction(ce.clientX, ce.clientY);
+}, { passive: true });
 
-// ─── UI Controls ────────────────────────────────────────────
-const titleScreen = document.getElementById('title-screen');
-const successScreen = document.getElementById('success-screen');
-const gameHud = document.getElementById('game-hud');
-const progressFill = document.getElementById('progress-fill');
+canvas.addEventListener('pointerup',    () => isDragging = false, { passive: true });
+canvas.addEventListener('pointerleave', () => isDragging = false, { passive: true });
+canvas.addEventListener('pointercancel',() => isDragging = false, { passive: true });
+
+// ─── UI ──────────────────────────────────────────────────────
+const titleScreen    = document.getElementById('title-screen');
+const successScreen  = document.getElementById('success-screen');
+const gameHud        = document.getElementById('game-hud');
+const progressFill   = document.getElementById('progress-fill');
 const progressPercent = document.getElementById('progress-percent');
 
 function updateHUD() {
     const pct = Math.round(progress * 100);
-    progressFill.style.width = pct + '%';
+    progressFill.style.width   = pct + '%';
     progressPercent.textContent = pct + '%';
-    if (progress >= 0.7) showSuccess();
 }
 
 function startGame() {
@@ -602,50 +509,63 @@ function startGame() {
 }
 
 function showSuccess() {
-    if (gameState !== 'playing') return;
     gameState = 'success';
     gameHud.classList.add('hidden');
     successScreen.classList.remove('hidden');
 }
 
 function restart() {
-    // Reset mask
     maskCtx.clearRect(0, 0, TEX_W, TEX_H);
-    pendingPoints = []; // clear any pending points
-    // Redraw chalkboard
     drawChalkboard();
     chalkTexture.needsUpdate = true;
     compositeBoard();
-
     progress = 0;
+    erasedEstimate = 0;
     updateHUD();
-
     successScreen.classList.add('hidden');
     boardGroup.visible = false;
     gameState = 'title';
     titleScreen.classList.remove('hidden');
 }
 
-// ─── Animation Loop ─────────────────────────────────────────
+// ─── Render loop ─────────────────────────────────────────────
 const clock = new THREE.Clock();
+let   progressCheckCountdown = 0; // tick-down; check progress every N frames
 
 function animate() {
     requestAnimationFrame(animate);
-    const t = clock.getElapsedTime();
+    const t  = clock.getElapsedTime();
+    const dt = clock.getDelta();
 
-    // Stars slow rotation
+    // ── Drain pending UVs (all canvas work happens here, once per frame) ──
+    if (pendingUVs.length > 0) {
+        for (const uv of pendingUVs) eraseAt(uv);
+        pendingUVs.length = 0; // clear without re-alloc
+
+        compositeBoard();       // one composite per frame, not per touch point
+
+        // Recalculate progress only every 4 frames to avoid repeated getImageData
+        progressCheckCountdown--;
+        if (progressCheckCountdown <= 0) {
+            progressCheckCountdown = 4;
+            progress = Math.min(calcProgressFromMask(), 1);
+            updateHUD();
+            if (progress >= 0.7) showSuccess();
+        }
+    }
+
+    // ── Particles ──
     stars.rotation.z = t * 0.004;
     stars.rotation.y = Math.sin(t * 0.08) * 0.015;
 
-    // Dust animation
-    const dArr = dust.geometry.getAttribute('position').array;
+    const dArr      = dust.geometry.getAttribute('position').array;
     const intensity = 0.3 + progress * 2.5;
     for (let i = 0; i < DUST_COUNT; i++) {
-        dArr[i * 3] += dustVel[i * 3] * intensity;
+        dArr[i * 3]     += dustVel[i * 3]     * intensity;
         dArr[i * 3 + 1] += dustVel[i * 3 + 1] * intensity;
         dArr[i * 3 + 2] += dustVel[i * 3 + 2] * intensity;
         if (dArr[i * 3 + 1] > 4.5) {
-            dArr[i * 3] = (Math.random() - 0.5) * 9;
+            dArr[i * 3]     = (Math.random() - 0.5) * 9;
             dArr[i * 3 + 1] = -3.5;
             dArr[i * 3 + 2] = (Math.random() - 0.5) * 3 - 1;
         }
@@ -653,14 +573,13 @@ function animate() {
     dust.geometry.getAttribute('position').needsUpdate = true;
     dustMat.opacity = 0.1 + progress * 0.35;
 
-    // Board gentle float
+    // ── Board gentle float ──
     if (boardGroup.visible) {
         boardGroup.rotation.x = Math.sin(t * 0.35) * 0.012;
         boardGroup.rotation.y = Math.sin(t * 0.25) * 0.008;
-        boardGroup.position.y = Math.sin(t * 0.4) * 0.02;
+        boardGroup.position.y = Math.sin(t * 0.4)  * 0.02;
     }
 
-    // Ambient light pulse
     ambientLight.intensity = 0.25 + Math.sin(t * 0.5) * 0.05 + progress * 0.15;
 
     renderer.render(scene, camera);
@@ -668,7 +587,7 @@ function animate() {
 
 animate();
 
-// ─── Resize: keep board fully visible ─────────────────────
+// ─── Resize ──────────────────────────────────────────────────
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
