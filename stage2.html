@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Effortless Lucid Dreaming</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;600&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            overflow: hidden;
+            background: #060e18;
+            font-family: 'Inter', system-ui, sans-serif;
+            color: #e6d9c8;
+            touch-action: none;
+            -webkit-font-smoothing: antialiased;
+            user-select: none;
+        }
+        canvas#scene {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+        }
+        .screen {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 24px;
+            z-index: 10;
+            transition: opacity 0.8s ease, transform 0.8s ease;
+        }
+        .screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(12px);
+        }
+        #title-screen, #success-screen, #content-modal {
+            background: rgba(6, 14, 24, 0.92);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+        }
+        h1, h2 {
+            font-family: 'Playfair Display', serif;
+            text-shadow: 0 0 40px rgba(230, 217, 200, 0.35);
+            letter-spacing: -1.5px;
+            line-height: 1.1;
+        }
+        h1 { font-size: clamp(2.8rem, 9vw, 5.5rem); font-weight: 700; }
+        h2 { font-size: clamp(2.2rem, 7vw, 4rem); font-weight: 700; }
+        .subtitle {
+            font-size: 1.1rem;
+            margin-top: 10px;
+            opacity: 0.55;
+            font-weight: 300;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        .btn {
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            background: rgba(230, 217, 200, 0.08);
+            color: #e6d9c8;
+            border: 1.5px solid rgba(230, 217, 200, 0.5);
+            padding: 14px 44px;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.35s cubic-bezier(0.23, 1, 0.32, 1);
+            margin-top: 40px;
+            letter-spacing: 0.5px;
+            backdrop-filter: blur(6px);
+        }
+        .btn:hover, .btn:active {
+            background: rgba(230, 217, 200, 0.9);
+            color: #0a1428;
+            border-color: #e6d9c8;
+            transform: scale(1.04);
+        }
+        .btn:active { transform: scale(0.97); }
+
+        /* Content Modal */
+        #content-modal .modal-inner {
+            width: 100%;
+            max-width: 520px;
+            margin: 0 auto;
+        }
+        #content-modal .modal-title {
+            font-size: 1.35rem;
+            margin-bottom: 14px;
+            opacity: 0.85;
+        }
+        #story-text {
+            background: rgba(15,31,42,0.85);
+            border-radius: 18px;
+            padding: 32px 28px;
+            font-size: 1.35rem;
+            line-height: 1.65;
+            text-align: left;
+            color: #e6d9c8;
+            box-shadow: 0 0 40px rgba(230,217,200,0.15);
+            max-height: 420px;
+            overflow-y: auto;
+            scrollbar-width: none;
+        }
+        #story-text::-webkit-scrollbar { display: none; }
+        #video-player {
+            width: 100%;
+            height: 520px;
+            border-radius: 18px;
+            background: #000;
+            box-shadow: 0 0 60px rgba(230,217,200,0.2);
+        }
+
+        /* Game HUD */
+        #game-hud {
+            position: fixed;
+            inset: 0;
+            z-index: 5;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            transition: opacity 0.6s ease;
+        }
+        #game-hud.hidden { opacity: 0; }
+        .hud-top { display: flex; justify-content: center; }
+        .hud-instruction {
+            background: rgba(6, 14, 24, 0.65);
+            backdrop-filter: blur(16px);
+            padding: 10px 24px;
+            border-radius: 40px;
+            border: 1px solid rgba(230, 217, 200, 0.08);
+        }
+        .hud-instruction p { font-size: 0.9rem; opacity: 0.85; }
+        .hud-instruction p.hint { font-size: 0.75rem; opacity: 0.45; margin-top: 2px; }
+        .hud-bottom {
+            max-width: 280px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        .progress-track {
+            width: 100%;
+            height: 3px;
+            background: rgba(230, 217, 200, 0.08);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, rgba(230, 217, 200, 0.4), #c8bda8);
+            border-radius: 2px;
+            transition: width 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        .progress-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-top: 6px;
+        }
+        .progress-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            opacity: 0.35;
+        }
+        .progress-percent {
+            font-size: 1.2rem;
+            font-weight: 600;
+            opacity: 0.9;
+        }
+        blockquote {
+            max-width: 380px;
+            font-size: 1.15rem;
+            line-height: 1.7;
+            font-style: italic;
+            opacity: 0.75;
+            margin: 32px 0 0;
+            font-weight: 300;
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-in { animation: fadeInUp 0.9s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
+        .animate-in-delay { opacity: 0; animation: fadeInUp 0.9s cubic-bezier(0.23, 1, 0.32, 1) 0.2s forwards; }
+        .animate-in-delay2 { opacity: 0; animation: fadeInUp 0.9s cubic-bezier(0.23, 1, 0.32, 1) 0.4s forwards; }
+    </style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<!-- Title Screen -->
+<div id="title-screen" class="screen">
+    <h1 class="animate-in">Effortless<br>Lucid Dreaming</h1>
+    <p class="subtitle animate-in-delay">Stage 2 · Feed Your Curiosity</p>
+    <button class="btn animate-in-delay2" onclick="startGame()">Soak In The Vibe</button>
+</div>
+
+<!-- Game HUD -->
+<div id="game-hud" class="hidden">
+    <div class="hud-top">
+        <div class="hud-instruction">
+            <p>Tap floating cards to expand</p>
+            <p class="hint">Relax. Let the vibe flow.</p>
+        </div>
+    </div>
+    <div class="hud-bottom">
+        <div class="progress-track">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div class="progress-meta">
+            <span class="progress-label">Curiosity</span>
+            <span class="progress-percent" id="progress-percent">0%</span>
+        </div>
+    </div>
+</div>
+
+<!-- Success Screen -->
+<div id="success-screen" class="screen hidden">
+    <h2 class="animate-in">Curiosity Fed</h2>
+    <blockquote class="animate-in-delay">
+        "Read a lucid dream story.<br>
+        Think about flying in a dream.<br>
+        Scroll through a lucid dreaming post.<br><br>
+        You’re not studying—you’re soaking in the vibe.<br>
+        Your unconscious picks it up."
+    </blockquote>
+    <button class="btn animate-in-delay2" onclick="restart()">Dream On →</button>
+</div>
+
+<!-- Content Modal (works for stories AND videos) -->
+<div id="content-modal" class="screen hidden">
+    <div class="modal-inner">
+        <div class="modal-title" id="content-title"></div>
+        
+        <!-- Story view -->
+        <div id="story-text" style="display:none;"></div>
+        
+        <!-- Video view -->
+        <iframe id="video-player" frameborder="0" allowfullscreen allow="autoplay; fullscreen" style="display:none; width:100%; height:520px;"></iframe>
+        
+        <button class="btn" onclick="closeContentModal()" style="width:100%; max-width:320px; margin-top:24px;">
+            Done — Let it sink in
+        </button>
+    </div>
+</div>
+
+<script>
+// ─── Setup ───────────────────────────────────────────────────
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.95;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#060e18');
+scene.fog = new THREE.Fog('#060e18', 8, 28);
+
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 50);
+camera.position.set(0, 0.6, 7.5);
+
+// ─── Lighting ────────────────────────────────────────────────
+const ambientLight = new THREE.AmbientLight(0xe6d9c8, 0.3);
+scene.add(ambientLight);
+const dirLight = new THREE.DirectionalLight(0xe6d9c8, 0.55);
+dirLight.position.set(3, 5, 6);
+scene.add(dirLight);
+const fillLight = new THREE.PointLight(0x6b8cb8, 0.35, 18);
+fillLight.position.set(-4, 2, 4);
+scene.add(fillLight);
+const rimLight = new THREE.PointLight(0xe6d9c8, 0.25, 12);
+rimLight.position.set(0, -3, 5);
+scene.add(rimLight);
+
+// ─── Stars & Dust ────────────────────────────────────────────
+const STAR_COUNT = 420;
+const starGeo = new THREE.BufferGeometry();
+const starPos = new Float32Array(STAR_COUNT * 3);
+for (let i = 0; i < STAR_COUNT; i++) {
+    starPos[i * 3] = (Math.random() - 0.5) * 42;
+    starPos[i * 3 + 1] = (Math.random() - 0.5) * 30;
+    starPos[i * 3 + 2] = -6 - Math.random() * 22;
+}
+starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+const starMat = new THREE.PointsMaterial({ size: 0.038, color: 0xc8bda8, transparent: true, opacity: 0.55, sizeAttenuation: true, depthWrite: false, blending: THREE.AdditiveBlending });
+const stars = new THREE.Points(starGeo, starMat);
+scene.add(stars);
+
+const DUST_COUNT = 180;
+const dustGeo = new THREE.BufferGeometry();
+const dustPos = new Float32Array(DUST_COUNT * 3);
+const dustVel = new Float32Array(DUST_COUNT * 3);
+for (let i = 0; i < DUST_COUNT; i++) {
+    dustPos[i * 3] = (Math.random() - 0.5) * 12;
+    dustPos[i * 3 + 1] = (Math.random() - 0.5) * 9;
+    dustPos[i * 3 + 2] = (Math.random() - 0.5) * 4 - 2;
+    dustVel[i * 3] = (Math.random() - 0.5) * 0.005;
+    dustVel[i * 3 + 1] = Math.random() * 0.008 + 0.003;
+    dustVel[i * 3 + 2] = (Math.random() - 0.5) * 0.003;
+}
+dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+const dustMat = new THREE.PointsMaterial({ size: 0.032, color: 0xe6d9c8, transparent: true, opacity: 0.2, sizeAttenuation: true, depthWrite: false, blending: THREE.AdditiveBlending });
+const dust = new THREE.Points(dustGeo, dustMat);
+scene.add(dust);
+
+// ─── Floating Cards ──────────────────────────────────────────
+const contentItems = [
+    { type: 'story', text: "First lucid dream: Realized I was dreaming when nobody wore masks.\nStarted flying around instantly.\nPure freedom! 🌬️" },
+    { type: 'story', text: "I flew away from medieval soldiers.\nMind-blowing control inside the dream.\nFelt like a god. ⚔️" },
+    { type: 'story', text: "Flying around my house at night...\nI knew I was dreaming, body safe in bed.\nThis is so much fun! 🏠" },
+    { type: 'video', platform: 'tiktok', vid: '7245719170481016106', title: 'Flying Lucid Dream POV', subtitle: 'Feel the wind on your face' },
+    { type: 'video', platform: 'youtube', vid: 'qfumU7wLVd4', title: 'Lucid Dream Tonight', subtitle: '16-minute vibe soak' },
+    { type: 'video', platform: 'tiktok', vid: '7202432571613908226', title: 'Unlock Your Mind', subtitle: 'Start lucid dreaming today' }
+];
+
+const CARD_W = 2.1, CARD_H = 1.35;
+const TEX_W = 420, TEX_H = 280;
+const cards = [];
+const cardGroup = new THREE.Group();
+scene.add(cardGroup);
+
+function createCardTexture(item) {
+    const c = document.createElement('canvas');
+    c.width = TEX_W; c.height = TEX_H;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#0f1f2a';
+    ctx.fillRect(0, 0, TEX_W, TEX_H);
+    const grad = ctx.createRadialGradient(TEX_W/2, TEX_H/2, 40, TEX_W/2, TEX_H/2, TEX_W*0.75);
+    grad.addColorStop(0, 'rgba(230,217,200,0.07)');
+    grad.addColorStop(1, 'rgba(230,217,200,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, TEX_W, TEX_H);
+    
+    ctx.shadowColor = '#e6d9c8';
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = '#e6d9c8';
+    ctx.textBaseline = 'top';
+    
+    if (item.type === 'story') {
+        ctx.font = '400 22px Inter, sans-serif';
+        const lines = item.text.split('\n');
+        let y = 48;
+        lines.forEach(line => { ctx.fillText(line, 38, y); y += 38; });
+        ctx.font = '300 13px Inter, sans-serif';
+        ctx.shadowBlur = 8;
+        ctx.fillText("— community dream", TEX_W - 138, TEX_H - 36);
+    } else {
+        ctx.shadowBlur = 22;
+        ctx.font = '700 28px Inter, sans-serif';
+        ctx.fillText('▶', TEX_W/2 - 28, TEX_H/2 - 42);
+        ctx.shadowBlur = 12;
+        ctx.font = '600 19px Inter, sans-serif';
+        ctx.fillText(item.title, 38, 58);
+        ctx.font = '400 15px Inter, sans-serif';
+        ctx.fillText(item.subtitle, 38, 92);
+        ctx.font = '300 13px Inter, sans-serif';
+        ctx.fillStyle = item.platform === 'tiktok' ? '#ff2d55' : '#ff0000';
+        ctx.fillText(item.platform.toUpperCase() + " • short", 38, TEX_H - 38);
+        ctx.fillStyle = '#e6d9c8';
+        ctx.font = '900 42px Inter, sans-serif';
+        ctx.fillText('▶', TEX_W - 88, TEX_H - 72);
+    }
+    return new THREE.CanvasTexture(c);
+}
+
+function createCard(i) {
+    const item = contentItems[i];
+    const tex = createCardTexture(item);
+    const mat = new THREE.MeshPhongMaterial({ map: tex, transparent: true, opacity: 0.96, shininess: 4, emissive: 0x112233, emissiveIntensity: 0.2 });
+    const geo = new THREE.PlaneGeometry(CARD_W, CARD_H);
+    const mesh = new THREE.Mesh(geo, mat);
+    
+    const angle = (i - 2.5) * 0.42;
+    mesh.position.x = Math.sin(angle) * 3.8;
+    mesh.position.y = Math.cos(angle) * 0.9 - 0.4;
+    mesh.position.z = -0.8 + Math.random() * 1.2;
+    mesh.rotation.y = angle * -0.6;
+    
+    cardGroup.add(mesh);
+    return { mesh, originalY: mesh.position.y, absorbed: false, item, tex };
+}
+
+for (let i = 0; i < 6; i++) cards.push(createCard(i));
+
+// Central orb
+const orb = new THREE.Mesh(new THREE.SphereGeometry(0.65, 32, 32),
+    new THREE.MeshPhongMaterial({ color: 0x112233, emissive: 0xa8c0d8, emissiveIntensity: 0.6, shininess: 12, transparent: true, opacity: 0.35 }));
+orb.position.set(0, 0.1, -1.2);
+scene.add(orb);
+
+// ─── Modal Logic ─────────────────────────────────────────────
+let currentCard = null;
+const contentModal = document.getElementById('content-modal');
+const contentTitle = document.getElementById('content-title');
+const storyText = document.getElementById('story-text');
+const videoPlayer = document.getElementById('video-player');
+
+function openContentModal(card) {
+    currentCard = card;
+    contentTitle.textContent = card.item.type === 'story' ? "A Lucid Dream Story" : card.item.title;
+    
+    if (card.item.type === 'story') {
+        storyText.style.display = 'block';
+        videoPlayer.style.display = 'none';
+        storyText.innerHTML = card.item.text.replace(/\n/g, '<br><br>');
+        videoPlayer.src = '';
+    } else {
+        storyText.style.display = 'none';
+        videoPlayer.style.display = 'block';
+        const embed = card.item.platform === 'youtube' 
+            ? `https://www.youtube.com/embed/${card.item.vid}?autoplay=1&rel=0&modestbranding=1&playsinline=1` 
+            : `https://www.tiktok.com/embed/vid/${card.item.vid}?autoplay=1`;
+        videoPlayer.src = embed;
+    }
+    
+    contentModal.classList.remove('hidden');
+    contentModal.style.opacity = '1';
+}
+
+function closeContentModal() {
+    videoPlayer.src = '';
+    contentModal.style.opacity = '0';
+    
+    setTimeout(() => {
+        contentModal.classList.add('hidden');
+        storyText.style.display = 'none';
+        videoPlayer.style.display = 'none';
+        
+        if (currentCard && !currentCard.absorbed) {
+            absorbCard(currentCard);
+        }
+        currentCard = null;
+    }, 400);
+}
+
+// ─── Interaction & Absorption ────────────────────────────────
+let gameState = 'title';
+let progress = 0;
+let absorbedCount = 0;
+let isDragging = false;
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+
+function absorbCard(card) {
+    if (card.absorbed) return;
+    card.absorbed = true;
+    absorbedCount++;
+    progress = Math.min(1, absorbedCount / 6);
+    updateHUD();
+    
+    const startPos = card.mesh.position.clone();
+    const targetPos = new THREE.Vector3(0, 0.2, -1.8);
+    
+    let t = 0;
+    const interval = setInterval(() => {
+        t += 0.085;
+        if (t >= 1) {
+            card.mesh.visible = false;
+            clearInterval(interval);
+            if (progress >= 0.98) showSuccess();
+            return;
+        }
+        const p = startPos.clone().lerp(targetPos, t * t);
+        card.mesh.position.copy(p);
+        card.mesh.scale.setScalar(1 - t * 0.7);
+        card.mesh.material.opacity = 1 - t * 0.95;
+        
+        if (Math.random() > 0.6) {
+            const dArr = dust.geometry.attributes.position.array;
+            const idx = Math.floor(Math.random() * DUST_COUNT) * 3;
+            dArr[idx] = p.x; dArr[idx+1] = p.y + 0.3; dArr[idx+2] = p.z;
+        }
+    }, 16);
+}
+
+function handleInteraction(clientX, clientY) {
+    if (gameState !== 'playing') return;
+    
+    const rect = canvas.getBoundingClientRect();
+    pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    
+    raycaster.setFromCamera(pointer, camera);
+    const hits = raycaster.intersectObjects(cards.map(c => c.mesh));
+    
+    if (hits.length > 0) {
+        const hitMesh = hits[0].object;
+        const card = cards.find(c => c.mesh === hitMesh);
+        if (card && !card.absorbed) {
+            openContentModal(card);
+        }
+    }
+}
+
+canvas.addEventListener('pointerdown', e => { isDragging = true; handleInteraction(e.clientX, e.clientY); });
+canvas.addEventListener('pointermove', e => { if (isDragging) handleInteraction(e.clientX, e.clientY); });
+canvas.addEventListener('pointerup', () => isDragging = false);
+canvas.addEventListener('pointerleave', () => isDragging = false);
+canvas.addEventListener('touchstart', e => { isDragging = true; handleInteraction(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+canvas.addEventListener('touchmove', e => { if (isDragging) handleInteraction(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+canvas.addEventListener('touchend', () => isDragging = false);
+
+// ─── UI ──────────────────────────────────────────────────────
+const titleScreen = document.getElementById('title-screen');
+const successScreen = document.getElementById('success-screen');
+const gameHud = document.getElementById('game-hud');
+const progressFill = document.getElementById('progress-fill');
+const progressPercent = document.getElementById('progress-percent');
+
+function updateHUD() {
+    const pct = Math.round(progress * 100);
+    progressFill.style.width = pct + '%';
+    progressPercent.textContent = pct + '%';
+}
+
+function startGame() {
+    gameState = 'playing';
+    titleScreen.classList.add('hidden');
+    gameHud.classList.remove('hidden');
+    cardGroup.visible = true;
+}
+
+function showSuccess() {
+    gameState = 'success';
+    gameHud.classList.add('hidden');
+    successScreen.classList.remove('hidden');
+}
+
+function restart() {
+    cards.forEach((card, i) => {
+        card.absorbed = false;
+        card.mesh.visible = true;
+        card.mesh.material.opacity = 0.96;
+        card.mesh.scale.setScalar(1);
+        const angle = (i - 2.5) * 0.42;
+        card.mesh.position.x = Math.sin(angle) * 3.8;
+        card.mesh.position.y = Math.cos(angle) * 0.9 - 0.4;
+        card.mesh.position.z = -0.8 + Math.random() * 1.2;
+    });
+    absorbedCount = 0;
+    progress = 0;
+    updateHUD();
+    successScreen.classList.add('hidden');
+    gameState = 'title';
+    titleScreen.classList.remove('hidden');
+}
+
+// ─── Animation Loop ─────────────────────────────────────────
+const clock = new THREE.Clock();
+function animate() {
+    requestAnimationFrame(animate);
+    const t = clock.getElapsedTime();
+    
+    stars.rotation.y = Math.sin(t * 0.07) * 0.018;
+    
+    const dArr = dust.geometry.attributes.position.array;
+    const intensity = 0.4 + progress * 3.2;
+    for (let i = 0; i < DUST_COUNT; i++) {
+        dArr[i*3]   += dustVel[i*3] * intensity;
+        dArr[i*3+1] += dustVel[i*3+1] * intensity;
+        dArr[i*3+2] += dustVel[i*3+2] * intensity;
+        if (dArr[i*3+1] > 6) {
+            dArr[i*3]   = (Math.random() - 0.5) * 12;
+            dArr[i*3+1] = -5;
+        }
+    }
+    dust.geometry.attributes.position.needsUpdate = true;
+    dustMat.opacity = 0.18 + progress * 0.42;
+    
+    cards.forEach((card, i) => {
+        if (card.absorbed) return;
+        card.mesh.position.y = card.originalY + Math.sin(t * 1.2 + i) * 0.08;
+        card.mesh.rotation.z = Math.sin(t * 0.6 + i) * 0.009;
+    });
+    
+    orb.scale.setScalar(1 + Math.sin(t * 2.8) * 0.07);
+    orb.material.emissiveIntensity = 0.6 + Math.sin(t * 3.4) * 0.25;
+    
+    renderer.render(scene, camera);
+}
+animate();
+
+// ─── Resize ─────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
