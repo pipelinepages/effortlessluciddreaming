@@ -1,424 +1,606 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Effortless Lucidity</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Effortless Lucid Dreaming</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;600&display=swap');
 
-<style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
-body{
-margin:0;
-overflow:hidden;
-background:black;
-font-family:sans-serif;
-}
+        body {
+            overflow: hidden;
+            background: #060e18;
+            font-family: 'Inter', system-ui, sans-serif;
+            color: #e6d9c8;
+            touch-action: none;
+            -webkit-font-smoothing: antialiased;
+            user-select: none;
+        }
 
-#ui{
-position:absolute;
-top:0;
-left:0;
-width:100%;
-color:white;
-padding:20px;
-pointer-events:none;
-}
+        canvas#scene {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+        }
 
-#text{
-max-width:320px;
-font-size:18px;
-line-height:1.4;
-opacity:.9;
-}
+        .screen {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 24px;
+            z-index: 10;
+            transition: opacity 0.8s ease, transform 0.8s ease;
+        }
 
-#awareness{
-position:absolute;
-bottom:20px;
-left:20px;
-height:6px;
-width:0%;
-background:#7df9ff;
-transition:.4s;
-}
+        .screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(12px);
+        }
 
-#joystick{
-position:absolute;
-bottom:30px;
-left:30px;
-width:90px;
-height:90px;
-border-radius:50%;
-border:2px solid rgba(255,255,255,.4);
-touch-action:none;
-}
+        #title-screen {
+            background: rgba(6, 14, 24, 0.88);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
 
-#stick{
-position:absolute;
-width:40px;
-height:40px;
-background:white;
-border-radius:50%;
-left:25px;
-top:25px;
-opacity:.8;
-}
+        #success-screen {
+            background: rgba(6, 14, 24, 0.88);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
 
-</style>
+        h1, h2 {
+            font-family: 'Playfair Display', serif;
+            text-shadow: 0 0 40px rgba(230, 217, 200, 0.35);
+            letter-spacing: -1.5px;
+            line-height: 1.1;
+        }
+
+        h1 {
+            font-size: clamp(2.8rem, 9vw, 5.5rem);
+            font-weight: 700;
+        }
+
+        h2 {
+            font-size: clamp(2.2rem, 7vw, 4rem);
+            font-weight: 700;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            margin-top: 10px;
+            opacity: 0.55;
+            font-weight: 300;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .btn {
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            background: rgba(230, 217, 200, 0.08);
+            color: #e6d9c8;
+            border: 1.5px solid rgba(230, 217, 200, 0.5);
+            padding: 14px 44px;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.35s cubic-bezier(0.23, 1, 0.32, 1);
+            margin-top: 40px;
+            letter-spacing: 0.5px;
+            backdrop-filter: blur(6px);
+        }
+
+        .btn:hover, .btn:active {
+            background: rgba(230, 217, 200, 0.9);
+            color: #0a1428;
+            border-color: #e6d9c8;
+            transform: scale(1.04);
+        }
+
+        .btn:active {
+            transform: scale(0.97);
+        }
+
+        /* Game HUD */
+        #game-hud {
+            position: fixed;
+            inset: 0;
+            z-index: 5;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            transition: opacity 0.6s ease;
+        }
+
+        #game-hud.hidden {
+            opacity: 0;
+        }
+
+        .hud-top {
+            display: flex;
+            justify-content: center;
+        }
+
+        .hud-instruction {
+            background: rgba(6, 14, 24, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            padding: 10px 24px;
+            border-radius: 40px;
+            border: 1px solid rgba(230, 217, 200, 0.08);
+        }
+
+        .hud-instruction p {
+            font-size: 0.9rem;
+            opacity: 0.85;
+        }
+
+        .hud-instruction p.hint {
+            font-size: 0.75rem;
+            opacity: 0.45;
+            margin-top: 2px;
+        }
+
+        .hud-bottom {
+            max-width: 280px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 3px;
+            background: rgba(230, 217, 200, 0.08);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, rgba(230, 217, 200, 0.4), #c8bda8);
+            border-radius: 2px;
+            transition: width 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        .progress-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-top: 6px;
+        }
+
+        .progress-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            opacity: 0.35;
+        }
+
+        .progress-percent {
+            font-size: 1.2rem;
+            font-weight: 600;
+            opacity: 0.9;
+        }
+
+        blockquote {
+            max-width: 380px;
+            font-size: 1.15rem;
+            line-height: 1.7;
+            font-style: italic;
+            opacity: 0.75;
+            margin: 32px 0 0;
+            font-weight: 300;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-in {
+            animation: fadeInUp 0.9s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+        }
+
+        .animate-in-delay {
+            opacity: 0;
+            animation: fadeInUp 0.9s cubic-bezier(0.23, 1, 0.32, 1) 0.2s forwards;
+        }
+
+        .animate-in-delay2 {
+            opacity: 0;
+            animation: fadeInUp 0.9s cubic-bezier(0.23, 1, 0.32, 1) 0.4s forwards;
+        }
+    </style>
 </head>
-
 <body>
 
-<div id="ui">
-<div id="text"></div>
-<div id="awareness"></div>
+<canvas id="scene"></canvas>
+
+<!-- Title Screen -->
+<div id="title-screen" class="screen">
+    <h1 class="animate-in">Effortless<br>Lucid Dreaming</h1>
+    <p class="subtitle animate-in-delay">Stage 1 · Clear Your Mind</p>
+    <button class="btn animate-in-delay2" onclick="startGame()">Begin Gently</button>
 </div>
 
-<div id="joystick"><div id="stick"></div></div>
+<!-- Game HUD -->
+<div id="game-hud" class="hidden">
+    <div class="hud-top">
+        <div class="hud-instruction">
+            <p>Gently swipe to erase the day.</p>
+            <p class="hint">Relax. Let go.</p>
+        </div>
+    </div>
+    <div class="hud-bottom">
+        <div class="progress-track">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div class="progress-meta">
+            <span class="progress-label">Clarity</span>
+            <span class="progress-percent" id="progress-percent">0%</span>
+        </div>
+    </div>
+</div>
 
-<script type="module">
+<!-- Success Screen -->
+<div id="success-screen" class="screen hidden">
+    <h2 class="animate-in">Mind Cleared</h2>
+    <blockquote class="animate-in-delay">
+        "Don't strain—just relax and let go.<br><br>
+        Ease is the fuel.<br>
+        Effort kills the vibe."
+    </blockquote>
+    <button class="btn animate-in-delay2" onclick="restart()">Dream On →</button>
+</div>
 
-import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js"
+<script>
+// ─── Setup ───────────────────────────────────────────────────
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.9;
 
-let scene=new THREE.Scene()
-scene.background=new THREE.Color(0x000000)
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#060e18');
+scene.fog = new THREE.Fog('#060e18', 6, 22);
 
-let camera=new THREE.PerspectiveCamera(
-75,
-window.innerWidth/window.innerHeight,
-0.1,
-1000
-)
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 50);
+camera.position.set(0, 0, 4.2);
 
-let renderer=new THREE.WebGLRenderer({antialias:true})
-renderer.setSize(window.innerWidth,window.innerHeight)
-document.body.appendChild(renderer.domElement)
+// ─── Lighting ────────────────────────────────────────────────
+const ambientLight = new THREE.AmbientLight(0xe6d9c8, 0.25);
+scene.add(ambientLight);
 
-window.addEventListener("resize",()=>{
-camera.aspect=window.innerWidth/window.innerHeight
-camera.updateProjectionMatrix()
-renderer.setSize(window.innerWidth,window.innerHeight)
-})
+const dirLight = new THREE.DirectionalLight(0xe6d9c8, 0.45);
+dirLight.position.set(2, 3, 5);
+scene.add(dirLight);
 
-/* lighting */
+const fillLight = new THREE.PointLight(0x6b8cb8, 0.25, 12);
+fillLight.position.set(-3, 1, 3);
+scene.add(fillLight);
 
-let hemi=new THREE.HemisphereLight(0xffffff,0x111133,1.3)
-scene.add(hemi)
+const rimLight = new THREE.PointLight(0xe6d9c8, 0.15, 10);
+rimLight.position.set(0, -2, 4);
+scene.add(rimLight);
 
-let dreamLight=new THREE.PointLight(0x88ccff,2,40)
-dreamLight.position.set(0,10,0)
-scene.add(dreamLight)
+// ─── Stars ───────────────────────────────────────────────────
+const STAR_COUNT = 400;
+const starGeo = new THREE.BufferGeometry();
+const starPos = new Float32Array(STAR_COUNT * 3);
+for (let i = 0; i < STAR_COUNT; i++) {
+    starPos[i * 3] = (Math.random() - 0.5) * 35;
+    starPos[i * 3 + 1] = (Math.random() - 0.5) * 25;
+    starPos[i * 3 + 2] = -4 - Math.random() * 18;
+}
+starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+const starMat = new THREE.PointsMaterial({
+    size: 0.04, color: 0xc8bda8, transparent: true, opacity: 0.5,
+    sizeAttenuation: true, depthWrite: false, blending: THREE.AdditiveBlending
+});
+const stars = new THREE.Points(starGeo, starMat);
+scene.add(stars);
 
-/* player */
+// ─── Dust Particles ─────────────────────────────────────────
+const DUST_COUNT = 150;
+const dustGeo = new THREE.BufferGeometry();
+const dustPos = new Float32Array(DUST_COUNT * 3);
+const dustVel = new Float32Array(DUST_COUNT * 3);
+for (let i = 0; i < DUST_COUNT; i++) {
+    dustPos[i * 3] = (Math.random() - 0.5) * 9;
+    dustPos[i * 3 + 1] = (Math.random() - 0.5) * 7;
+    dustPos[i * 3 + 2] = (Math.random() - 0.5) * 3 - 1;
+    dustVel[i * 3] = (Math.random() - 0.5) * 0.004;
+    dustVel[i * 3 + 1] = Math.random() * 0.006 + 0.002;
+    dustVel[i * 3 + 2] = (Math.random() - 0.5) * 0.002;
+}
+dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+const dustMat = new THREE.PointsMaterial({
+    size: 0.035, color: 0xe6d9c8, transparent: true, opacity: 0.15,
+    sizeAttenuation: true, depthWrite: false, blending: THREE.AdditiveBlending
+});
+const dust = new THREE.Points(dustGeo, dustMat);
+scene.add(dust);
 
-let player=new THREE.Mesh(
-new THREE.CapsuleGeometry(.6,1.2,4,8),
-new THREE.MeshStandardMaterial({color:0xffffff})
-)
+// ─── Chalkboard ─────────────────────────────────────────────
+const BOARD_W = 4.8, BOARD_H = 3.2;
+const TEX_W = 512, TEX_H = 340;
+const ERASE_RADIUS = 30;
 
-scene.add(player)
-player.position.y=1
+const boardGroup = new THREE.Group();
+boardGroup.visible = false;
+scene.add(boardGroup);
 
-/* camera system */
+// Base (cleared surface)
+const baseMat = new THREE.MeshStandardMaterial({ color: '#0c1820', roughness: 0.95 });
+const baseMesh = new THREE.Mesh(new THREE.PlaneGeometry(BOARD_W, BOARD_H), baseMat);
+baseMesh.position.z = -0.005;
+boardGroup.add(baseMesh);
 
-let cameraAngle=0
+// Chalk texture
+const chalkCanvas = document.createElement('canvas');
+chalkCanvas.width = TEX_W; chalkCanvas.height = TEX_H;
+const chalkCtx = chalkCanvas.getContext('2d');
 
-function updateCamera(){
+function drawChalkboard() {
+    chalkCtx.fillStyle = '#162428';
+    chalkCtx.fillRect(0, 0, TEX_W, TEX_H);
 
-let distance=6
+    // Subtle grain noise
+    for (let i = 0; i < 5000; i++) {
+        chalkCtx.fillStyle = `rgba(255,255,255,${Math.random() * 0.025})`;
+        chalkCtx.fillRect(Math.random() * TEX_W, Math.random() * TEX_H, 1, 1);
+    }
 
-let x=player.position.x+Math.sin(cameraAngle)*distance
-let z=player.position.z+Math.cos(cameraAngle)*distance
+    // Chalk writings
+    chalkCtx.textBaseline = 'top';
+    const writings = [
+        { t: '9:00 — morning meeting', x: 35, y: 28, s: 17 },
+        { t: 'reply to emails ✓', x: 295, y: 22, s: 15 },
+        { t: 'grocery list:', x: 40, y: 85, s: 18 },
+        { t: '• milk, bread, eggs', x: 55, y: 112, s: 15 },
+        { t: '• coffee beans', x: 55, y: 135, s: 15 },
+        { t: 'call mom back', x: 300, y: 90, s: 16 },
+        { t: 'workout — 30 min run', x: 42, y: 185, s: 16 },
+        { t: 'finish report !!!', x: 290, y: 175, s: 17 },
+        { t: 'dentist @ 3pm', x: 80, y: 240, s: 16 },
+        { t: 'pick up laundry', x: 310, y: 240, s: 15 },
+        { t: 'anxiety about tomorrow...', x: 120, y: 295, s: 16 },
+    ];
 
-camera.position.set(x,3,z)
-camera.lookAt(player.position)
+    writings.forEach(({ t, x, y, s }) => {
+        chalkCtx.font = `${s}px Inter, sans-serif`;
+        // Multi-pass chalk effect
+        for (let p = 0; p < 3; p++) {
+            const ox = (Math.random() - 0.5) * 0.8;
+            const oy = (Math.random() - 0.5) * 0.8;
+            chalkCtx.fillStyle = `rgba(215, 205, 188, ${0.18 + Math.random() * 0.35})`;
+            chalkCtx.fillText(t, x + ox, y + oy);
+        }
+    });
+}
+drawChalkboard();
 
+const chalkTexture = new THREE.CanvasTexture(chalkCanvas);
+
+// Erase mask
+const maskCanvas = document.createElement('canvas');
+maskCanvas.width = TEX_W; maskCanvas.height = TEX_H;
+const maskCtx = maskCanvas.getContext('2d');
+
+// Composite
+const compCanvas = document.createElement('canvas');
+compCanvas.width = TEX_W; compCanvas.height = TEX_H;
+const compCtx = compCanvas.getContext('2d');
+const compTexture = new THREE.CanvasTexture(compCanvas);
+
+function compositeBoard() {
+    compCtx.clearRect(0, 0, TEX_W, TEX_H);
+    compCtx.drawImage(chalkCanvas, 0, 0);
+    compCtx.globalCompositeOperation = 'destination-out';
+    compCtx.drawImage(maskCanvas, 0, 0);
+    compCtx.globalCompositeOperation = 'source-over';
+    compTexture.needsUpdate = true;
+}
+compositeBoard();
+
+const chalkMat = new THREE.MeshStandardMaterial({ map: compTexture, transparent: true, side: THREE.DoubleSide, roughness: 0.85 });
+const chalkMesh = new THREE.Mesh(new THREE.PlaneGeometry(BOARD_W, BOARD_H), chalkMat);
+boardGroup.add(chalkMesh);
+
+// Wooden frame
+const frameMat = new THREE.MeshStandardMaterial({ color: '#221a10', roughness: 0.92, metalness: 0.05 });
+const frameData = [
+    { p: [0, BOARD_H/2 + 0.055, 0.01], s: [BOARD_W + 0.22, 0.11, 0.07] },
+    { p: [0, -BOARD_H/2 - 0.055, 0.01], s: [BOARD_W + 0.22, 0.11, 0.07] },
+    { p: [-BOARD_W/2 - 0.055, 0, 0.01], s: [0.11, BOARD_H + 0.22, 0.07] },
+    { p: [BOARD_W/2 + 0.055, 0, 0.01], s: [0.11, BOARD_H + 0.22, 0.07] },
+];
+frameData.forEach(({ p, s }) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(...s), frameMat);
+    m.position.set(...p);
+    boardGroup.add(m);
+});
+
+// Chalk tray
+const tray = new THREE.Mesh(new THREE.BoxGeometry(BOARD_W * 0.5, 0.05, 0.1), frameMat);
+tray.position.set(0, -BOARD_H/2 - 0.16, 0.07);
+boardGroup.add(tray);
+
+// Small chalk pieces on tray
+const chalkPieceMat = new THREE.MeshStandardMaterial({ color: '#d4cbb8', roughness: 0.95 });
+[-0.4, 0.1, 0.5].forEach(ox => {
+    const piece = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.12 + Math.random() * 0.06, 6), chalkPieceMat);
+    piece.rotation.z = Math.PI / 2 + (Math.random() - 0.5) * 0.3;
+    piece.position.set(ox, -BOARD_H/2 - 0.13, 0.1);
+    boardGroup.add(piece);
+});
+
+// ─── Erasing Logic ──────────────────────────────────────────
+let gameState = 'title'; // title | playing | success
+let progress = 0;
+let isDragging = false;
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+
+function eraseAt(uv) {
+    const x = uv.x * TEX_W;
+    const y = (1 - uv.y) * TEX_H;
+    const grad = maskCtx.createRadialGradient(x, y, 0, x, y, ERASE_RADIUS);
+    grad.addColorStop(0, 'rgba(255,255,255,0.55)');
+    grad.addColorStop(0.5, 'rgba(255,255,255,0.25)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    maskCtx.fillStyle = grad;
+    maskCtx.beginPath();
+    maskCtx.arc(x, y, ERASE_RADIUS, 0, Math.PI * 2);
+    maskCtx.fill();
 }
 
-/* dream particles */
-
-let particles=new THREE.BufferGeometry()
-let count=1500
-
-let pos=new Float32Array(count*3)
-
-for(let i=0;i<count;i++){
-
-pos[i*3]=(Math.random()-.5)*80
-pos[i*3+1]=Math.random()*20
-pos[i*3+2]=(Math.random()-.5)*120
-
+function calcProgress() {
+    const data = maskCtx.getImageData(0, 0, TEX_W, TEX_H).data;
+    let erased = 0, total = 0;
+    for (let i = 3; i < data.length; i += 20) {
+        total++;
+        if (data[i] > 100) erased++;
+    }
+    return erased / total;
 }
 
-particles.setAttribute("position",new THREE.BufferAttribute(pos,3))
-
-let particleMat=new THREE.PointsMaterial({
-size:.15,
-color:0x99ffff
-})
-
-let starfield=new THREE.Points(particles,particleMat)
-scene.add(starfield)
-
-/* floating dream platforms */
-
-function createDreamPlatforms(){
-
-for(let i=0;i<40;i++){
-
-let box=new THREE.Mesh(
-
-new THREE.BoxGeometry(
-3+Math.random()*5,
-.4,
-3+Math.random()*5
-),
-
-new THREE.MeshStandardMaterial({
-color:0x111111
-})
-
-)
-
-box.position.x=(Math.random()-.5)*20
-box.position.y=Math.random()*3
-box.position.z=-i*6
-
-scene.add(box)
-
+function handleInteraction(clientX, clientY) {
+    if (gameState !== 'playing') return;
+    const rect = canvas.getBoundingClientRect();
+    pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+    const hits = raycaster.intersectObject(chalkMesh);
+    if (hits.length > 0 && hits[0].uv) {
+        eraseAt(hits[0].uv);
+        compositeBoard();
+        progress = Math.min(calcProgress(), 1);
+        updateHUD();
+        if (progress >= 0.7) showSuccess();
+    }
 }
 
+// Pointer events
+canvas.addEventListener('pointerdown', e => { isDragging = true; handleInteraction(e.clientX, e.clientY); });
+canvas.addEventListener('pointermove', e => { if (isDragging) handleInteraction(e.clientX, e.clientY); });
+canvas.addEventListener('pointerup', () => isDragging = false);
+canvas.addEventListener('pointerleave', () => isDragging = false);
+
+// Touch events (fallback)
+canvas.addEventListener('touchstart', e => { isDragging = true; handleInteraction(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+canvas.addEventListener('touchmove', e => { if (isDragging && e.touches.length) handleInteraction(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+canvas.addEventListener('touchend', () => isDragging = false);
+
+// ─── UI Controls ────────────────────────────────────────────
+const titleScreen = document.getElementById('title-screen');
+const successScreen = document.getElementById('success-screen');
+const gameHud = document.getElementById('game-hud');
+const progressFill = document.getElementById('progress-fill');
+const progressPercent = document.getElementById('progress-percent');
+
+function updateHUD() {
+    const pct = Math.round(progress * 100);
+    progressFill.style.width = pct + '%';
+    progressPercent.textContent = pct + '%';
 }
 
-createDreamPlatforms()
-
-/* awareness system */
-
-let awareness=0
-let lucid=false
-
-function showText(t){
-
-document.getElementById("text").innerText=t
-
-setTimeout(()=>{
-document.getElementById("text").innerText=""
-},6000)
-
+function startGame() {
+    gameState = 'playing';
+    titleScreen.classList.add('hidden');
+    gameHud.classList.remove('hidden');
+    boardGroup.visible = true;
 }
 
-function addAwareness(v){
-
-awareness+=v
-if(awareness>100) awareness=100
-
-document.getElementById("awareness").style.width=awareness+"%"
-
-if(awareness>=100 && !lucid){
-
-lucid=true
-
-showText("You realize…\nThis is a dream.")
-
+function showSuccess() {
+    gameState = 'success';
+    gameHud.classList.add('hidden');
+    successScreen.classList.remove('hidden');
 }
 
+function restart() {
+    // Reset mask
+    maskCtx.clearRect(0, 0, TEX_W, TEX_H);
+    // Redraw chalkboard
+    drawChalkboard();
+    chalkTexture.needsUpdate = true;
+    compositeBoard();
+
+    progress = 0;
+    updateHUD();
+
+    successScreen.classList.add('hidden');
+    boardGroup.visible = false;
+    gameState = 'title';
+
+    // Re-show title with fresh animations
+    titleScreen.classList.remove('hidden');
 }
 
-/* dream triggers */
+// ─── Animation Loop ─────────────────────────────────────────
+const clock = new THREE.Clock();
 
-function makeTrigger(z,text,value){
+function animate() {
+    requestAnimationFrame(animate);
+    const t = clock.getElapsedTime();
+    const dt = Math.min(clock.getDelta(), 0.05);
 
-let orb=new THREE.Mesh(
+    // Stars slow rotation
+    stars.rotation.z = t * 0.004;
+    stars.rotation.y = Math.sin(t * 0.08) * 0.015;
 
-new THREE.SphereGeometry(.8,16,16),
+    // Dust animation
+    const dArr = dust.geometry.getAttribute('position').array;
+    const intensity = 0.3 + progress * 2.5;
+    for (let i = 0; i < DUST_COUNT; i++) {
+        dArr[i * 3] += dustVel[i * 3] * intensity;
+        dArr[i * 3 + 1] += dustVel[i * 3 + 1] * intensity;
+        dArr[i * 3 + 2] += dustVel[i * 3 + 2] * intensity;
+        if (dArr[i * 3 + 1] > 4.5) {
+            dArr[i * 3] = (Math.random() - 0.5) * 9;
+            dArr[i * 3 + 1] = -3.5;
+            dArr[i * 3 + 2] = (Math.random() - 0.5) * 3 - 1;
+        }
+    }
+    dust.geometry.getAttribute('position').needsUpdate = true;
+    dustMat.opacity = 0.1 + progress * 0.35;
 
-new THREE.MeshStandardMaterial({
-color:0x00ffff,
-emissive:0x00ffff
-})
+    // Board gentle float
+    if (boardGroup.visible) {
+        boardGroup.rotation.x = Math.sin(t * 0.35) * 0.012;
+        boardGroup.rotation.y = Math.sin(t * 0.25) * 0.008;
+        boardGroup.position.y = Math.sin(t * 0.4) * 0.02;
+    }
 
-)
+    // Ambient light pulse
+    ambientLight.intensity = 0.25 + Math.sin(t * 0.5) * 0.05 + progress * 0.15;
 
-orb.position.set(0,1,z)
-
-scene.add(orb)
-
-return {orb,text,value}
-
+    renderer.render(scene, camera);
 }
 
-let triggers=[
-
-makeTrigger(-15,
-"Step 1\nClear your mind.\nImagine erasing your day from a chalkboard.",
-30),
-
-makeTrigger(-35,
-"Step 2\nFeed curiosity.\nRead a lucid dream story.",
-30),
-
-makeTrigger(-60,
-"Step 3\nWhat if this was a dream?",
-40)
-
-]
-
-/* joystick */
-
-let joystick=document.getElementById("joystick")
-let stick=document.getElementById("stick")
-
-let move={x:0,z:0}
-let dragging=false
-
-joystick.addEventListener("touchstart",()=>dragging=true)
-
-joystick.addEventListener("touchend",()=>{
-
-dragging=false
-move.x=0
-move.z=0
-
-stick.style.left="25px"
-stick.style.top="25px"
-
-})
-
-joystick.addEventListener("touchmove",(e)=>{
-
-if(!dragging)return
-
-let rect=joystick.getBoundingClientRect()
-
-let x=e.touches[0].clientX-rect.left
-let y=e.touches[0].clientY-rect.top
-
-let dx=x-45
-let dy=y-45
-
-let dist=Math.sqrt(dx*dx+dy*dy)
-let max=35
-
-if(dist>max){
-
-dx=dx/dist*max
-dy=dy/dist*max
-
-}
-
-stick.style.left=(dx+45-20)+"px"
-stick.style.top=(dy+45-20)+"px"
-
-move.x=dx/max
-move.z=dy/max
-
-})
-
-/* swipe camera */
-
-let touching=false
-let lastX=0
-
-document.addEventListener("touchstart",e=>{
-touching=true
-lastX=e.touches[0].clientX
-})
-
-document.addEventListener("touchmove",e=>{
-
-if(!touching)return
-
-let dx=e.touches[0].clientX-lastX
-
-cameraAngle-=dx*0.005
-
-lastX=e.touches[0].clientX
-
-})
-
-document.addEventListener("touchend",()=>touching=false)
-
-/* keyboard */
-
-let keys={}
-
-document.addEventListener("keydown",e=>keys[e.key]=true)
-document.addEventListener("keyup",e=>keys[e.key]=false)
-
-/* movement */
-
-function movePlayer(){
-
-if(keys["w"])move.z=-1
-if(keys["s"])move.z=1
-if(keys["a"])move.x=-1
-if(keys["d"])move.x=1
-
-let speed=lucid?.12:.07
-
-player.position.x+=move.x*speed
-player.position.z+=move.z*speed
-
-move.x*=.9
-move.z*=.9
-
-}
-
-/* triggers */
-
-function checkTriggers(){
-
-triggers.forEach(t=>{
-
-if(!t.orb)return
-
-if(player.position.distanceTo(t.orb.position)<2){
-
-showText(t.text)
-
-addAwareness(t.value)
-
-scene.remove(t.orb)
-t.orb=null
-
-}
-
-})
-
-}
-
-/* lucid flight */
-
-function updateLucid(){
-
-if(!lucid)return
-
-player.position.y=1+Math.sin(Date.now()*0.003)*.4
-
-}
-
-/* animation loop */
-
-function animate(){
-
-requestAnimationFrame(animate)
-
-movePlayer()
-
-updateCamera()
-
-checkTriggers()
-
-updateLucid()
-
-starfield.rotation.y+=0.0003
-
-renderer.render(scene,camera)
-
-}
-
-showText("Don't force lucid dreams.\nAllow them.")
-
-animate()
-
+animate();
+
+// ─── Resize ─────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
 </script>
 </body>
 </html>
