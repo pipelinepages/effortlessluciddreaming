@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Effortless Lucid Dreaming</title>
+    <title>Effortless Lucid Dreaming – full board view</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;600&display=swap');
@@ -280,7 +280,7 @@ scene.background = new THREE.Color('#060e18');
 scene.fog = new THREE.Fog('#060e18', 6, 22);
 
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 50);
-camera.position.set(0, 0, 4.2);
+camera.position.set(0, 0, 4.2); // initial, will be adjusted
 
 // ─── Lighting ────────────────────────────────────────────────
 const ambientLight = new THREE.AmbientLight(0xe6d9c8, 0.25);
@@ -336,8 +336,12 @@ const dustMat = new THREE.PointsMaterial({
 const dust = new THREE.Points(dustGeo, dustMat);
 scene.add(dust);
 
-// ─── Chalkboard ─────────────────────────────────────────────
+// ─── Chalkboard (with frame dimensions) ─────────────────────
 const BOARD_W = 4.8, BOARD_H = 3.2;
+const FRAME_OVERHANG = 0.22; // from frame pieces
+const TOTAL_BOARD_W = BOARD_W + FRAME_OVERHANG;  // ~5.02
+const TOTAL_BOARD_H = BOARD_H + FRAME_OVERHANG;  // ~3.42
+
 const TEX_W = 512, TEX_H = 340;
 const ERASE_RADIUS = 30;
 
@@ -422,7 +426,7 @@ const chalkMat = new THREE.MeshStandardMaterial({ map: compTexture, transparent:
 const chalkMesh = new THREE.Mesh(new THREE.PlaneGeometry(BOARD_W, BOARD_H), chalkMat);
 boardGroup.add(chalkMesh);
 
-// Wooden frame
+// Wooden frame (using total dimensions for visual)
 const frameMat = new THREE.MeshStandardMaterial({ color: '#221a10', roughness: 0.92, metalness: 0.05 });
 const frameData = [
     { p: [0, BOARD_H/2 + 0.055, 0.01], s: [BOARD_W + 0.22, 0.11, 0.07] },
@@ -449,6 +453,26 @@ const chalkPieceMat = new THREE.MeshStandardMaterial({ color: '#d4cbb8', roughne
     piece.position.set(ox, -BOARD_H/2 - 0.13, 0.1);
     boardGroup.add(piece);
 });
+
+// ─── Camera auto‑adjust to always show full board + frame ──────────
+function adjustCameraForAspect() {
+    const aspect = window.innerWidth / window.innerHeight;
+    const fovRad = camera.fov * Math.PI / 180;
+    const tanHalfFov = Math.tan(fovRad / 2);
+    const padding = 1.1; // 10% margin around the board+frame
+
+    // Use total dimensions including the wooden frame so everything is visible
+    const targetHeight = Math.max(
+        TOTAL_BOARD_H * padding,
+        (TOTAL_BOARD_W * padding) / aspect
+    );
+    const distance = targetHeight / (2 * tanHalfFov);
+    camera.position.z = distance;
+    // no projection matrix update needed – only position changed
+}
+
+// Call initially and on resize
+adjustCameraForAspect();
 
 // ─── Erasing Logic ──────────────────────────────────────────
 let gameState = 'title'; // title | playing | success
@@ -595,11 +619,12 @@ function animate() {
 
 animate();
 
-// ─── Resize ─────────────────────────────────────────────────
+// ─── Resize: update camera distance to always fit board ─────
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    adjustCameraForAspect(); // reposition camera to keep full board in view
 });
 </script>
 </body>
