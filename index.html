@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Effortless Lucid Dreaming – full board view</title>
+    <title>Effortless Lucid Dreaming – smooth touch</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;600&display=swap');
@@ -24,6 +24,7 @@
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
+            touch-action: none; /* ensure no pan/zoom */
         }
 
         .screen {
@@ -468,16 +469,28 @@ function adjustCameraForAspect() {
     );
     const distance = targetHeight / (2 * tanHalfFov);
     camera.position.z = distance;
-    // no projection matrix update needed – only position changed
 }
-
-// Call initially and on resize
 adjustCameraForAspect();
 
-// ─── Erasing Logic ──────────────────────────────────────────
+// ─── Erasing Logic (optimized for smooth touch) ─────────────
 let gameState = 'title'; // title | playing | success
 let progress = 0;
 let isDragging = false;
+
+// Throttle progress calculation (heavy operation)
+let progressUpdateScheduled = false;
+function scheduleProgressUpdate() {
+    if (progressUpdateScheduled) return;
+    progressUpdateScheduled = true;
+    requestAnimationFrame(() => {
+        if (gameState === 'playing') {
+            progress = Math.min(calcProgress(), 1);
+            updateHUD();
+        }
+        progressUpdateScheduled = false;
+    });
+}
+
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 
@@ -497,7 +510,7 @@ function eraseAt(uv) {
 function calcProgress() {
     const data = maskCtx.getImageData(0, 0, TEX_W, TEX_H).data;
     let erased = 0, total = 0;
-    for (let i = 3; i < data.length; i += 20) {
+    for (let i = 3; i < data.length; i += 25) { // slightly larger stride for performance
         total++;
         if (data[i] > 100) erased++;
     }
@@ -513,23 +526,24 @@ function handleInteraction(clientX, clientY) {
     const hits = raycaster.intersectObject(chalkMesh);
     if (hits.length > 0 && hits[0].uv) {
         eraseAt(hits[0].uv);
-        compositeBoard();
-        progress = Math.min(calcProgress(), 1);
-        updateHUD();
-        if (progress >= 0.7) showSuccess();
+        compositeBoard();         // immediate visual update
+        scheduleProgressUpdate(); // throttled progress & HUD
+
+        if (progress >= 0.7) showSuccess(); // progress might be stale, but success will be checked after update
     }
 }
 
-// Pointer events
+// Use non-passive touchmove to prevent any scrolling (though CSS touch-action already does)
 canvas.addEventListener('pointerdown', e => { isDragging = true; handleInteraction(e.clientX, e.clientY); });
-canvas.addEventListener('pointermove', e => { if (isDragging) handleInteraction(e.clientX, e.clientY); });
+canvas.addEventListener('pointermove', e => { if (isDragging) { e.preventDefault(); handleInteraction(e.clientX, e.clientY); } }, { passive: false });
 canvas.addEventListener('pointerup', () => isDragging = false);
 canvas.addEventListener('pointerleave', () => isDragging = false);
 
-// Touch events (fallback)
+// Touch events (fallback) also with non-passive move
 canvas.addEventListener('touchstart', e => { isDragging = true; handleInteraction(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
-canvas.addEventListener('touchmove', e => { if (isDragging && e.touches.length) handleInteraction(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+canvas.addEventListener('touchmove', e => { if (isDragging && e.touches.length) { e.preventDefault(); handleInteraction(e.touches[0].clientX, e.touches[0].clientY); } }, { passive: false });
 canvas.addEventListener('touchend', () => isDragging = false);
+canvas.addEventListener('touchcancel', () => isDragging = false);
 
 // ─── UI Controls ────────────────────────────────────────────
 const titleScreen = document.getElementById('title-screen');
@@ -542,6 +556,7 @@ function updateHUD() {
     const pct = Math.round(progress * 100);
     progressFill.style.width = pct + '%';
     progressPercent.textContent = pct + '%';
+    if (progress >= 0.7) showSuccess();
 }
 
 function startGame() {
@@ -552,6 +567,7 @@ function startGame() {
 }
 
 function showSuccess() {
+    if (gameState !== 'playing') return; // avoid repeated triggers
     gameState = 'success';
     gameHud.classList.add('hidden');
     successScreen.classList.remove('hidden');
@@ -571,8 +587,6 @@ function restart() {
     successScreen.classList.add('hidden');
     boardGroup.visible = false;
     gameState = 'title';
-
-    // Re-show title with fresh animations
     titleScreen.classList.remove('hidden');
 }
 
@@ -624,7 +638,7 @@ window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-    adjustCameraForAspect(); // reposition camera to keep full board in view
+    adjustCameraForAspect();
 });
 </script>
 </body>
