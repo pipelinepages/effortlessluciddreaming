@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Effortless Lucid Dreaming – smooth touch</title>
+    <title>Effortless Lucid Dreaming – ultra smooth</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;600&display=swap');
@@ -24,7 +24,7 @@
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            touch-action: none; /* ensure no pan/zoom */
+            touch-action: none;
         }
 
         .screen {
@@ -407,6 +407,20 @@ const maskCanvas = document.createElement('canvas');
 maskCanvas.width = TEX_W; maskCanvas.height = TEX_H;
 const maskCtx = maskCanvas.getContext('2d');
 
+// Pre‑render soft eraser brush (white circle with alpha gradient)
+const brushCanvas = document.createElement('canvas');
+const brushSize = ERASE_RADIUS * 2;
+brushCanvas.width = brushCanvas.height = brushSize;
+const brushCtx = brushCanvas.getContext('2d');
+const gradient = brushCtx.createRadialGradient(ERASE_RADIUS, ERASE_RADIUS, 0, ERASE_RADIUS, ERASE_RADIUS, ERASE_RADIUS);
+gradient.addColorStop(0, 'rgba(255,255,255,0.55)');
+gradient.addColorStop(0.5, 'rgba(255,255,255,0.25)');
+gradient.addColorStop(1, 'rgba(255,255,255,0)');
+brushCtx.fillStyle = gradient;
+brushCtx.beginPath();
+brushCtx.arc(ERASE_RADIUS, ERASE_RADIUS, ERASE_RADIUS, 0, Math.PI * 2);
+brushCtx.fill();
+
 // Composite
 const compCanvas = document.createElement('canvas');
 compCanvas.width = TEX_W; compCanvas.height = TEX_H;
@@ -427,7 +441,7 @@ const chalkMat = new THREE.MeshStandardMaterial({ map: compTexture, transparent:
 const chalkMesh = new THREE.Mesh(new THREE.PlaneGeometry(BOARD_W, BOARD_H), chalkMat);
 boardGroup.add(chalkMesh);
 
-// Wooden frame (using total dimensions for visual)
+// Wooden frame
 const frameMat = new THREE.MeshStandardMaterial({ color: '#221a10', roughness: 0.92, metalness: 0.05 });
 const frameData = [
     { p: [0, BOARD_H/2 + 0.055, 0.01], s: [BOARD_W + 0.22, 0.11, 0.07] },
@@ -460,9 +474,7 @@ function adjustCameraForAspect() {
     const aspect = window.innerWidth / window.innerHeight;
     const fovRad = camera.fov * Math.PI / 180;
     const tanHalfFov = Math.tan(fovRad / 2);
-    const padding = 1.1; // 10% margin around the board+frame
-
-    // Use total dimensions including the wooden frame so everything is visible
+    const padding = 1.1; // 10% margin
     const targetHeight = Math.max(
         TOTAL_BOARD_H * padding,
         (TOTAL_BOARD_W * padding) / aspect
@@ -472,12 +484,42 @@ function adjustCameraForAspect() {
 }
 adjustCameraForAspect();
 
-// ─── Erasing Logic (optimized for smooth touch) ─────────────
+// ─── Ultra‑smooth erasing with batching ─────────────────────
 let gameState = 'title'; // title | playing | success
 let progress = 0;
 let isDragging = false;
 
-// Throttle progress calculation (heavy operation)
+// Pending erase points (canvas coordinates)
+let pendingPoints = [];
+let processingScheduled = false;
+
+// Pre‑computed brush dimensions for fast drawing
+const brushHalf = ERASE_RADIUS;
+
+function scheduleEraseProcessing() {
+    if (processingScheduled) return;
+    processingScheduled = true;
+    requestAnimationFrame(processErasePoints);
+}
+
+function processErasePoints() {
+    processingScheduled = false;
+    if (pendingPoints.length === 0 || gameState !== 'playing') return;
+
+    // Draw all pending points onto mask canvas using the pre‑rendered brush
+    for (const { x, y } of pendingPoints) {
+        maskCtx.drawImage(brushCanvas, x - brushHalf, y - brushHalf);
+    }
+    pendingPoints = [];
+
+    // Update the composite texture (GPU upload)
+    compositeBoard();
+
+    // Throttled progress calculation
+    scheduleProgressUpdate();
+}
+
+// Throttled progress calculation
 let progressUpdateScheduled = false;
 function scheduleProgressUpdate() {
     if (progressUpdateScheduled) return;
@@ -491,31 +533,29 @@ function scheduleProgressUpdate() {
     });
 }
 
-const raycaster = new THREE.Raycaster();
-const pointer = new THREE.Vector2();
-
-function eraseAt(uv) {
-    const x = uv.x * TEX_W;
-    const y = (1 - uv.y) * TEX_H;
-    const grad = maskCtx.createRadialGradient(x, y, 0, x, y, ERASE_RADIUS);
-    grad.addColorStop(0, 'rgba(255,255,255,0.55)');
-    grad.addColorStop(0.5, 'rgba(255,255,255,0.25)');
-    grad.addColorStop(1, 'rgba(255,255,255,0)');
-    maskCtx.fillStyle = grad;
-    maskCtx.beginPath();
-    maskCtx.arc(x, y, ERASE_RADIUS, 0, Math.PI * 2);
-    maskCtx.fill();
-}
-
 function calcProgress() {
     const data = maskCtx.getImageData(0, 0, TEX_W, TEX_H).data;
     let erased = 0, total = 0;
-    for (let i = 3; i < data.length; i += 25) { // slightly larger stride for performance
+    for (let i = 3; i < data.length; i += 25) { // stride for speed
         total++;
         if (data[i] > 100) erased++;
     }
     return erased / total;
 }
+
+function queueEraseAt(uv) {
+    const x = uv.x * TEX_W;
+    const y = (1 - uv.y) * TEX_H;
+    // Clamp to avoid drawing outside the mask (optional)
+    const clampedX = Math.min(Math.max(x, brushHalf), TEX_W - brushHalf);
+    const clampedY = Math.min(Math.max(y, brushHalf), TEX_H - brushHalf);
+    pendingPoints.push({ x: clampedX, y: clampedY });
+    scheduleEraseProcessing();
+}
+
+// Raycasting and point collection
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
 
 function handleInteraction(clientX, clientY) {
     if (gameState !== 'playing') return;
@@ -525,21 +565,16 @@ function handleInteraction(clientX, clientY) {
     raycaster.setFromCamera(pointer, camera);
     const hits = raycaster.intersectObject(chalkMesh);
     if (hits.length > 0 && hits[0].uv) {
-        eraseAt(hits[0].uv);
-        compositeBoard();         // immediate visual update
-        scheduleProgressUpdate(); // throttled progress & HUD
-
-        if (progress >= 0.7) showSuccess(); // progress might be stale, but success will be checked after update
+        queueEraseAt(hits[0].uv);
     }
 }
 
-// Use non-passive touchmove to prevent any scrolling (though CSS touch-action already does)
+// Event listeners (non‑passive move to prevent any scroll delay)
 canvas.addEventListener('pointerdown', e => { isDragging = true; handleInteraction(e.clientX, e.clientY); });
 canvas.addEventListener('pointermove', e => { if (isDragging) { e.preventDefault(); handleInteraction(e.clientX, e.clientY); } }, { passive: false });
 canvas.addEventListener('pointerup', () => isDragging = false);
 canvas.addEventListener('pointerleave', () => isDragging = false);
 
-// Touch events (fallback) also with non-passive move
 canvas.addEventListener('touchstart', e => { isDragging = true; handleInteraction(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
 canvas.addEventListener('touchmove', e => { if (isDragging && e.touches.length) { e.preventDefault(); handleInteraction(e.touches[0].clientX, e.touches[0].clientY); } }, { passive: false });
 canvas.addEventListener('touchend', () => isDragging = false);
@@ -567,7 +602,7 @@ function startGame() {
 }
 
 function showSuccess() {
-    if (gameState !== 'playing') return; // avoid repeated triggers
+    if (gameState !== 'playing') return;
     gameState = 'success';
     gameHud.classList.add('hidden');
     successScreen.classList.remove('hidden');
@@ -576,6 +611,7 @@ function showSuccess() {
 function restart() {
     // Reset mask
     maskCtx.clearRect(0, 0, TEX_W, TEX_H);
+    pendingPoints = []; // clear any pending points
     // Redraw chalkboard
     drawChalkboard();
     chalkTexture.needsUpdate = true;
@@ -596,7 +632,6 @@ const clock = new THREE.Clock();
 function animate() {
     requestAnimationFrame(animate);
     const t = clock.getElapsedTime();
-    const dt = Math.min(clock.getDelta(), 0.05);
 
     // Stars slow rotation
     stars.rotation.z = t * 0.004;
@@ -633,7 +668,7 @@ function animate() {
 
 animate();
 
-// ─── Resize: update camera distance to always fit board ─────
+// ─── Resize: keep board fully visible ─────────────────────
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
