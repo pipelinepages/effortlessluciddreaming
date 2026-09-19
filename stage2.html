@@ -318,9 +318,9 @@ const contentItems = [
     { type: 'story', text: "First lucid dream: Realized I was dreaming when nobody wore masks.\nStarted flying around instantly.\nPure freedom! 🌬️" },
     { type: 'story', text: "I flew away from medieval soldiers.\nMind-blowing control inside the dream.\nFelt like a god. ⚔️" },
     { type: 'story', text: "Flying around my house at night...\nI knew I was dreaming, body safe in bed.\nThis is so much fun! 🏠" },
-    { type: 'video', platform: 'tiktok', vid: '7245719170481016106', title: 'Flying Lucid Dream POV', subtitle: 'Feel the wind on your face' },
-    { type: 'video', platform: 'youtube', vid: 'qfumU7wLVd4', title: 'Lucid Dream Tonight', subtitle: '16-minute vibe soak' },
-    { type: 'video', platform: 'tiktok', vid: '7202432571613908226', title: 'Unlock Your Mind', subtitle: 'Start lucid dreaming today' }
+    { type: 'video', platform: 'tiktok', vid: '7665419882862824725', title: 'Lucid Dreaming 101', subtitle: 'Wake Up With Answers' },
+    { type: 'video', platform: 'tiktok', vid: '7665075815901695253', title: 'Dream Recall Secrets', subtitle: 'Wake Up With Answers' },
+    { type: 'video', platform: 'tiktok', vid: '7663089953349504276', title: 'Go Lucid Tonight', subtitle: 'Wake Up With Answers' }
 ];
 
 const CARD_W = 2.1, CARD_H = 1.35;
@@ -419,7 +419,7 @@ function openContentModal(card) {
         videoPlayer.style.display = 'block';
         const embed = card.item.platform === 'youtube' 
             ? `https://www.youtube.com/embed/${card.item.vid}?autoplay=1&rel=0&modestbranding=1&playsinline=1` 
-            : `https://www.tiktok.com/embed/vid/${card.item.vid}?autoplay=1`;
+            : `https://www.tiktok.com/embed/v2/${card.item.vid}?autoplay=1`;
         videoPlayer.src = embed;
     }
     
