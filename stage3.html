@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Effortless Lucid Dreaming</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;600&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            overflow: hidden;
+            background: #060e18;
+            font-family: 'Inter', system-ui, sans-serif;
+            color: #e6d9c8;
+            touch-action: none;
+            -webkit-font-smoothing: antialiased;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        canvas#scene {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            touch-action: none;
+        }
+
+        #vignette {
+            position: fixed;
+            inset: 0;
+            z-index: 3;
+            pointer-events: none;
+            background: radial-gradient(ellipse at 50% 48%, rgba(3, 7, 12, 0) 52%, rgba(3, 7, 12, 0.6) 100%);
+        }
+
+        .screen {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 24px;
+            z-index: 10;
+            transition: opacity 0.8s ease, transform 0.8s ease;
+        }
+
+        .screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(12px);
+        }
+
+        #title-screen,
+        #success-screen {
+            background: rgba(6, 14, 24, 0.88);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        #epilogue-screen {
+            background: rgba(4, 9, 15, 0.93);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+
+        h1, h2 {
+            font-family: 'Playfair Display', serif;
+            text-shadow: 0 0 40px rgba(230, 217, 200, 0.35);
+            letter-spacing: -1.5px;
+            line-height: 1.1;
+        }
+
+        h1 { font-size: clamp(2.8rem, 9vw, 5.5rem); font-weight: 700; }
+        h2 { font-size: clamp(2.2rem, 7vw, 4rem); font-weight: 700; }
+
+        .subtitle {
+            font-size: 1.1rem;
+            margin-top: 10px;
+            opacity: 0.55;
+            font-weight: 300;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .btn {
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            background: rgba(230, 217, 200, 0.08);
+            color: #e6d9c8;
+            border: 1.5px solid rgba(230, 217, 200, 0.5);
+            padding: 14px 44px;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.35s cubic-bezier(0.23, 1, 0.32, 1);
+            margin-top: 40px;
+            letter-spacing: 0.5px;
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+        }
+
+        .btn:hover, .btn:active {
+            background: rgba(230, 217, 200, 0.9);
+            color: #0a1428;
+            border-color: #e6d9c8;
+            transform: scale(1.04);
+        }
+
+        .btn:active { transform: scale(0.97); }
+
+        .btn:focus-visible,
+        .icon-btn:focus-visible,
+        .btn-quiet:focus-visible {
+            outline: 2px solid rgba(230, 217, 200, 0.85);
+            outline-offset: 4px;
+        }
+
+        /* =========================
+           GAME HUD
+           ========================= */
+
+        #game-hud {
+            position: fixed;
+            inset: 0;
+            z-index: 5;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            transition: opacity 0.6s ease;
+        }
+
+        #game-hud.hidden { opacity: 0; }
+
+        .hud-top {
+            display: flex;
+            justify-content: center;
+        }
+
+        .hud-instruction {
+            background: rgba(6, 14, 24, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            padding: 10px 24px;
+            border-radius: 40px;
+            border: 1px solid rgba(230, 217, 200, 0.08);
+            max-width: 340px;
+            text-align: center;
+        }
+
+        .hud-instruction p { font-size: 0.9rem; opacity: 0.85; }
+        .hud-instruction p.hint { font-size: 0.75rem; opacity: 0.45; margin-top: 2px; }
+
+        .hud-instruction .swap { animation: hudSwap 0.8s cubic-bezier(0.23, 1, 0.32, 1) both; }
+
+        @keyframes hudSwap {
+            from { opacity: 0; transform: translateY(5px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .hud-bottom {
+            max-width: 280px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .hud-tools {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .tools-spacer { width: 40px; height: 40px; }
+
+        /* Breath ring: glows when it is time for the next gentle tap */
+        .breath {
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            border: 1.5px solid rgba(230, 217, 200, 0.7);
+            display: grid;
+            place-items: center;
+            opacity: 0.18;
+            transition: opacity 0.6s ease;
+            animation: breathe 5s ease-in-out infinite;
+        }
+
+        .breath::after {
+            content: "";
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #e6d9c8;
+            box-shadow: 0 0 14px rgba(230, 217, 200, 0.8);
+        }
+
+        .breath.ready { opacity: 0.95; }
+
+        @keyframes breathe {
+            0%, 100% { transform: scale(0.86); }
+            50%      { transform: scale(1.08); }
+        }
+
+        .icon-btn {
+            pointer-events: auto;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 1px solid rgba(230, 217, 200, 0.25);
+            background: rgba(6, 14, 24, 0.55);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            color: #e6d9c8;
+            display: grid;
+            place-items: center;
+            cursor: pointer;
+            transition: background 0.3s ease, border-color 0.3s ease;
+        }
+
+        .icon-btn:hover { background: rgba(230, 217, 200, 0.14); border-color: rgba(230, 217, 200, 0.5); }
+
+        .icon-btn svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.6;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .icon-btn .x { display: none; }
+        .icon-btn.off .wave { display: none; }
+        .icon-btn.off .x { display: block; }
+
+        .progress-track {
+            width: 100%;
+            height: 3px;
+            background: rgba(230, 217, 200, 0.08);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, rgba(230, 217, 200, 0.4), #c8bda8);
+            border-radius: 2px;
+            transition: width 0.9s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        .progress-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-top: 6px;
+        }
+
+        .progress-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            opacity: 0.35;
+        }
+
+        .progress-percent {
+            font-size: 1.2rem;
+            font-weight: 600;
+            opacity: 0.9;
+        }
+
+        /* Tap ripples */
+        #ripples {
+            position: fixed;
+            inset: 0;
+            z-index: 6;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .ripple {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            margin: -10px 0 0 -10px;
+            border-radius: 50%;
+            border: 1.5px solid rgba(230, 217, 200, 0.7);
+            background: radial-gradient(circle, rgba(230, 217, 200, 0.18), rgba(230, 217, 200, 0) 70%);
+            animation: ripple 1.7s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+        }
+
+        @keyframes ripple {
+            from { transform: scale(1);  opacity: 0.85; }
+            to   { transform: scale(11); opacity: 0; }
+        }
+
+        /* =========================
+           SUCCESS + EPILOGUE
+           ========================= */
+
+        blockquote {
+            max-width: 380px;
+            font-size: 1.15rem;
+            line-height: 1.7;
+            font-style: italic;
+            opacity: 0.75;
+            margin: 32px 0 0;
+            font-weight: 300;
+        }
+
+        .epi-line {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(1.35rem, 5vw, 2rem);
+            line-height: 1.4;
+            margin-top: 22px;
+            max-width: 420px;
+            text-shadow: 0 0 30px rgba(230, 217, 200, 0.3);
+            opacity: 0;
+        }
+
+        .epi-line.final {
+            font-style: italic;
+            font-weight: 400;
+            opacity: 0;
+            margin-top: 44px;
+            color: #c8bda8;
+        }
+
+        /* The line that leads into the closing call to action */
+        .epi-line.cta {
+            font-family: 'Inter', sans-serif;
+            font-size: clamp(0.85rem, 3.2vw, 1.05rem);
+            font-weight: 400;
+            letter-spacing: 2.5px;
+            text-transform: uppercase;
+            line-height: 1.6;
+            opacity: 0;
+            margin-top: 46px;
+            color: #e6d9c8;
+            text-shadow: 0 0 24px rgba(230, 217, 200, 0.25);
+        }
+
+        .epilogue-run .epi-line { animation: epiIn 2.2s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
+        .epilogue-run .epi-line:nth-child(1) { animation-delay: 0.5s; }
+        .epilogue-run .epi-line:nth-child(2) { animation-delay: 3.2s; }
+        .epilogue-run .epi-line:nth-child(3) { animation-delay: 5.9s; }
+        .epilogue-run .epi-line.final        { animation-delay: 9.4s; }
+        .epilogue-run .epi-line.cta          { animation-delay: 11.8s; }
+        .epilogue-run .btn-quiet             { animation: epiIn 2s ease 14s forwards; }
+
+        @keyframes epiIn {
+            from { opacity: 0; transform: translateY(14px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .btn-quiet {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 300;
+            letter-spacing: 1px;
+            color: #e6d9c8;
+            background: none;
+            border: none;
+            margin-top: 40px;
+            padding: 10px 18px;
+            cursor: pointer;
+            opacity: 0;
+            border-radius: 30px;
+            display: inline-block;
+            text-decoration: none;
+        }
+
+        .btn-quiet:hover { text-decoration: underline; text-underline-offset: 5px; }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-in        { animation: fadeInUp 0.9s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
+        .animate-in-delay  { opacity: 0; animation: fadeInUp 0.9s cubic-bezier(0.23, 1, 0.32, 1) 0.2s forwards; }
+        .animate-in-delay2 { opacity: 0; animation: fadeInUp 0.9s cubic-bezier(0.23, 1, 0.32, 1) 0.4s forwards; }
+
+        @media (max-width: 480px) {
+            .screen { padding: 20px; }
+            .hud-instruction { padding: 10px 20px; max-width: 300px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .breath { animation: none; }
+            .ripple { animation-duration: 0.01s; }
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="scene"></canvas>
+<div id="vignette"></div>
+<div id="ripples"></div>
+
+<!-- Title Screen -->
+<div id="title-screen" class="screen">
+    <h1 class="animate-in">Effortless<br>Lucid Dreaming</h1>
+    <p class="subtitle animate-in-delay">Stage 3 of 3 · Play With The Idea</p>
+    <button class="btn animate-in-delay2" onclick="startGame()">Play Along</button>
+</div>
+
+<!-- Game HUD -->
+<div id="game-hud" class="hidden">
+    <div class="hud-top">
+        <div class="hud-instruction" role="status" aria-live="polite">
+            <p id="hud-main">What if this was a dream?</p>
+            <p class="hint" id="hud-hint">Tap anywhere, gently. Like a slow breath.</p>
+        </div>
+    </div>
+    <div class="hud-bottom">
+        <div class="hud-tools">
+            <span class="tools-spacer"></span>
+            <div class="breath" id="breath" aria-hidden="true"></div>
+            <button class="icon-btn" id="sound-btn" aria-label="Mute sound" onclick="toggleSound()">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 9v6h4l5 4V5L8 9H4z"/>
+                    <path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>
+                    <path class="x" d="M17 9l5 6M22 9l-5 6"/>
+                </svg>
+            </button>
+        </div>
+        <div class="progress-track">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div class="progress-meta">
+            <span class="progress-label">Lightness</span>
+            <span class="progress-percent" id="progress-percent">0%</span>
+        </div>
+    </div>
+</div>
+
+<!-- Success Screen -->
+<div id="success-screen" class="screen hidden">
+    <h2 class="animate-in">Permission Given</h2>
+    <blockquote class="animate-in-delay">
+        Suggestion works because it’s light.<br>
+        No stress. No pressure.<br>
+        Just gentle repetition.<br><br>
+        Lucid dreaming doesn’t require force.<br>
+        Just quiet permission.
+    </blockquote>
+    <button class="btn animate-in-delay2" onclick="goodnight()">Sleep On It</button>
+</div>
+
+<!-- Epilogue -->
+<div id="epilogue-screen" class="screen hidden">
+    <p class="epi-line">Try it tonight.</p>
+    <p class="epi-line">Let go. Suggest. Then sleep.</p>
+    <p class="epi-line">Let your unconscious surprise you.</p>
+    <p class="epi-line final">You might just wake up inside your dream.</p>
+    <p class="epi-line cta">Get breakthrough ideas with lucid dreaming</p>
+    <a class="btn-quiet" href="https://wakeupwithanswers.com">wake up with answers</a>
+</div>
+
+<script>
+// ─── Helpers ─────────────────────────────────────────────────
+const TAU = Math.PI * 2;
+const clamp  = (x, a, b) => Math.min(b, Math.max(a, x));
+const lerp   = (a, b, t) => a + (b - a) * t;
+const rand   = (a, b) => a + Math.random() * (b - a);
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+// r134 has no colour management: convert sRGB hex to linear so surfaces render as authored
+const lin = hex => new THREE.Color(hex).convertSRGBToLinear();
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const MOTION = reduceMotion ? 0.35 : 1;
+
+// ─── Setup ───────────────────────────────────────────────────
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.95;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#060e18');
+scene.fog = new THREE.Fog('#060e18', 18, 62);
+
+const BASE_FOV = 50;
+const camera = new THREE.PerspectiveCamera(BASE_FOV, window.innerWidth / window.innerHeight, 0.1, 120);
+let camDist = 11;
+
+// Keeps the table and its chairs in frame on tall phones, and the whole room in frame on wide screens
+function fitCamera() {
+    const aspect = window.innerWidth / window.innerHeight;
+    const tanHalf = Math.tan(THREE.MathUtils.degToRad(BASE_FOV / 2));
+    camDist = Math.max(10.2, 2.9 / (tanHalf * aspect));
+    camera.aspect = aspect;
+    camera.updateProjectionMatrix();
+}
+fitCamera();
+
+// ─── Lighting ────────────────────────────────────────────────
+const ambient = new THREE.AmbientLight(0xe6d9c8, 0.3);
+scene.add(ambient);
+
+const lamp = new THREE.PointLight(0xf0e2cb, 1.6, 14, 1);          // recessed ceiling light
+lamp.position.set(0, 5.4, 0.2);
+scene.add(lamp);
+
+const windowLight = new THREE.PointLight(0x6b8cb8, 1.2, 12, 1);    // moonlight through the window
+windowLight.position.set(0, 3.4, -3.4);
+scene.add(windowLight);
+
+const fillLight = new THREE.DirectionalLight(0x6b8cb8, 0.3);
+fillLight.position.set(-3, 5, 9);
+scene.add(fillLight);
+
+const playerLight = new THREE.PointLight(0xe6d9c8, 0.4, 7, 1);     // the dreamer's own glow
+scene.add(playerLight);
+
+// ─── Textures ────────────────────────────────────────────────
+function radialTexture(stops, size = 128) {
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const g = c.getContext('2d');
+    const r = size / 2;
+    const grad = g.createRadialGradient(r, r, 0, r, r, r);
+    stops.forEach(([o, col]) => grad.addColorStop(o, col));
+    g.fillStyle = grad;
+    g.fillRect(0, 0, size, size);
+    const tex = new THREE.CanvasTexture(c);
+    tex.encoding = THREE.sRGBEncoding;
+    return tex;
+}
+
+const glowTex   = radialTexture([[0, 'rgba(255,255,255,1)'], [0.22, 'rgba(255,255,255,0.32)'], [1, 'rgba(255,255,255,0)']]);
+const sparkTex  = radialTexture([[0, 'rgba(255,255,255,1)'], [0.35, 'rgba(255,255,255,0.5)'], [1, 'rgba(255,255,255,0)']], 64);
+const shadowTex = radialTexture([[0, 'rgba(0,0,0,0.8)'], [0.55, 'rgba(0,0,0,0.3)'], [1, 'rgba(0,0,0,0)']]);
+
+// Night sky in the window: gradient, a few stars and a crescent moon
+function makeWindowTexture() {
+    const W = 256, H = 512;
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const g = c.getContext('2d');
+
+    const sky = g.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#0a1729');
+    sky.addColorStop(0.6, '#1c3352');
+    sky.addColorStop(1, '#3a5a86');
+    g.fillStyle = sky;
+    g.fillRect(0, 0, W, H);
+
+    for (let i = 0; i < 46; i++) {
+        g.fillStyle = `rgba(230,217,200,${rand(0.25, 0.85)})`;
+        const s = Math.random() > 0.85 ? 2.2 : 1.3;
+        g.fillRect(rand(14, W - 14), rand(14, H * 0.7), s, s);
+    }
+
+    g.fillStyle = '#efe4d2';
+    g.beginPath(); g.arc(168, 118, 32, 0, TAU); g.fill();
+    g.fillStyle = sky;
+    g.beginPath(); g.arc(182, 108, 29, 0, TAU); g.fill();
+
+    g.strokeStyle = '#08121b';
+    g.lineWidth = 16; g.strokeRect(8, 8, W - 16, H - 16);
+    g.lineWidth = 8;
+    g.beginPath();
+    g.moveTo(W / 2, 8); g.lineTo(W / 2, H - 8);
+    g.moveTo(8, H * 0.4); g.lineTo(W - 8, H * 0.4);
+    g.stroke();
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.encoding = THREE.sRGBEncoding;
+    return tex;
+}
+
+function makeMoonTexture() {
+    const S = 256;
+    const c = document.createElement('canvas');
+    c.width = c.height = S;
+    const g = c.getContext('2d');
+    g.fillStyle = '#f2e8d6';
+    g.beginPath(); g.arc(S * 0.5, S * 0.5, S * 0.34, 0, TAU); g.fill();
+    g.globalCompositeOperation = 'destination-out';
+    g.beginPath(); g.arc(S * 0.62, S * 0.42, S * 0.31, 0, TAU); g.fill();
+    const tex = new THREE.CanvasTexture(c);
+    tex.encoding = THREE.sRGBEncoding;
+    return tex;
+}
+
+// ─── Materials ───────────────────────────────────────────────
+const M = {
+    wall:   new THREE.MeshStandardMaterial({ color: lin('#122231'), roughness: 0.95 }),
+    floor:  new THREE.MeshStandardMaterial({ color: lin('#0e1b27'), roughness: 1, metalness: 0 }),
+    rug:    new THREE.MeshStandardMaterial({ color: lin('#16293a'), roughness: 1 }),
+    table:  new THREE.MeshStandardMaterial({ color: lin('#243a50'), roughness: 0.42, metalness: 0.1 }),
+    chair:  new THREE.MeshStandardMaterial({ color: lin('#1a2b3b'), roughness: 0.8 }),
+    paper:  new THREE.MeshStandardMaterial({ color: lin('#ddd3c0'), roughness: 0.9, emissive: lin('#ddd3c0'), emissiveIntensity: 0.16 }),
+    cup:    new THREE.MeshStandardMaterial({ color: lin('#c8bda8'), roughness: 0.55, emissive: lin('#c8bda8'), emissiveIntensity: 0.12 }),
+    laptop: new THREE.MeshStandardMaterial({ color: lin('#31465c'), roughness: 0.4, metalness: 0.3 }),
+    player: new THREE.MeshStandardMaterial({ color: lin('#e6d9c8'), roughness: 0.5, emissive: lin('#e6d9c8'), emissiveIntensity: 0.6 })
+};
+const attendeeBody = ['#324a62', '#3a526b', '#2c435a', '#3e566e'].map(h => new THREE.MeshStandardMaterial({ color: lin(h), roughness: 0.7 }));
+const attendeeHead = ['#4a6482', '#516c8a', '#445e7b', '#56718f'].map(h => new THREE.MeshStandardMaterial({ color: lin(h), roughness: 0.62 }));
+
+// ─── Stars, Sky & Moon ───────────────────────────────────────
+function makeStarField(count, xr, y0, y1, z0, z1, size, opacity) {
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+        pos[i * 3]     = (Math.random() - 0.5) * 2 * xr;
+        pos[i * 3 + 1] = rand(y0, y1);
+        pos[i * 3 + 2] = rand(z0, z1);
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const mat = new THREE.PointsMaterial({
+        size, map: sparkTex, color: 0xc8bda8, transparent: true, opacity,
+        sizeAttenuation: true, depthWrite: false, fog: false, blending: THREE.AdditiveBlending
+    });
+    const pts = new THREE.Points(geo, mat);
+    pts.frustumCulled = false;
+    scene.add(pts);
+    return pts;
+}
+const starsBack = makeStarField(520, 36, -8, 46, -36, -9, 0.1, 0.55);
+const starsHigh = makeStarField(380, 24, 9, 50, -16, 8, 0.11, 0.05);   // revealed on the way up
+
+const moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeMoonTexture(), transparent: true, fog: false, depthWrite: false }));
+moon.position.set(3.1, 17.5, -17);
+moon.scale.set(6, 6, 1);
+scene.add(moon);
+
+const moonHalo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xa8bcd6, transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, fog: false, depthWrite: false }));
+moonHalo.position.set(3.1, 17.5, -17.5);
+moonHalo.scale.set(18, 18, 1);
+scene.add(moonHalo);
+
+// ─── Room ────────────────────────────────────────────────────
+const ROOM_W = 10, ROOM_D = 9.4, ROOM_H = 6.4;
+const room = new THREE.Group();
+scene.add(room);
+
+const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+function box(w, h, d, mat, x = 0, y = 0, z = 0) {
+    const m = new THREE.Mesh(boxGeo, mat);
+    m.scale.set(w, h, d);
+    m.position.set(x, y, z);
+    return m;
+}
+
+room.add(box(ROOM_W, 0.3, ROOM_D, M.floor, 0, -0.15, 0.2));
+room.add(box(ROOM_W, ROOM_H, 0.3, M.wall, 0, ROOM_H / 2, -4.65));
+room.add(box(0.3, ROOM_H, ROOM_D, M.wall, -5.15, ROOM_H / 2, 0.2));
+room.add(box(0.3, ROOM_H, ROOM_D, M.wall, 5.15, ROOM_H / 2, 0.2));
+
+// Window with a moonlit sky
+const windowMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.9, 3.7),
+    new THREE.MeshBasicMaterial({ map: makeWindowTexture(), fog: false })
+);
+windowMesh.position.set(0, 3.35, -4.49);
+room.add(windowMesh);
+
+// Rug + table
+const rug = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.012, 56), M.rug);
+rug.scale.set(3.5, 1, 2.6);
+rug.position.set(0, 0.006, 0);
+room.add(rug);
+
+const tableTop = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.09, 56), M.table);
+tableTop.scale.set(1.65, 1, 0.9);
+tableTop.position.y = 1.02;
+room.add(tableTop);
+
+const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.26, 0.98, 24), M.table);
+pedestal.position.y = 0.49;
+room.add(pedestal);
+
+const tableFoot = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.05, 40), M.table);
+tableFoot.scale.set(0.75, 1, 0.5);
+tableFoot.position.y = 0.025;
+room.add(tableFoot);
+
+function makeShadow(w, d, opacity = 0.9) {
+    const m = new THREE.Mesh(
+        new THREE.PlaneGeometry(1, 1),
+        new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, opacity, depthWrite: false, fog: false })
+    );
+    m.rotation.x = -Math.PI / 2;
+    m.position.y = 0.016;
+    m.scale.set(w, d, 1);
+    scene.add(m);
+    return m;
+}
+makeShadow(5.4, 3.4, 0.95).position.set(0, 0.016, 0);
+
+// ─── Chairs & people ─────────────────────────────────────────
+const postGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.5, 10);
+const footGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.05, 24);
+const bodyGeo = new THREE.CylinderGeometry(0.2, 0.31, 0.78, 22);
+const headGeo = new THREE.SphereGeometry(0.2, 26, 20);
+
+function buildChair() {
+    const g = new THREE.Group();
+    g.add(box(0.62, 0.08, 0.62, M.chair, 0, 0.55, 0));
+    g.add(box(0.62, 0.62, 0.07, M.chair, 0, 0.92, -0.3));
+    const post = new THREE.Mesh(postGeo, M.chair); post.position.y = 0.28; g.add(post);
+    const foot = new THREE.Mesh(footGeo, M.chair); foot.position.y = 0.03; g.add(foot);
+    return g;
+}
+
+// A simple pawn-like figure. Origin sits at the hips so leaning pivots naturally
+function buildFigure(bodyMat, headMat) {
+    const f = new THREE.Group();
+    const body = new THREE.Mesh(bodyGeo, bodyMat); body.position.y = 0.39;
+    const head = new THREE.Mesh(headGeo, headMat); head.position.y = 0.99;
+    f.add(body, head);
+    return f;
+}
+
+const seats = [];
+const seatDefs = [
+    { x: -1.05, z: -1.5,  ry: 0 },
+    { x:  1.05, z: -1.5,  ry: 0 },
+    { x: -2.35, z: 0,     ry: Math.PI / 2 },
+    { x:  2.35, z: 0,     ry: -Math.PI / 2 },
+    { x: -0.95, z: 1.55,  ry: Math.PI },
+    { x:  0.95, z: 1.55,  ry: Math.PI }
+];
+
+function addSeat(def, withFigure, idx) {
+    const g = new THREE.Group();
+    g.position.set(def.x, 0, def.z);
+    g.rotation.y = def.ry;
+    g.add(buildChair());
+    let fig = null;
+    if (withFigure) {
+        fig = buildFigure(attendeeBody[idx % 4], attendeeHead[idx % 4]);
+        fig.position.set(0, 0.6, 0.06);
+        g.add(fig);
+    }
+    room.add(g);
+    const shadow = makeShadow(1.5, 1.5, 0.85);
+    shadow.position.set(def.x, 0.016, def.z);
+    seats.push({
+        g, fig, shadow, def,
+        start: rand(0.36, 0.56), rise: rand(0.45, 1.15),
+        ph: rand(0, TAU), yaw: rand(-0.35, 0.35), tiltPh: rand(0, TAU)
+    });
+}
+seatDefs.forEach((d, i) => addSeat(d, true, i));
+
+// The dreamer: centre seat, glowing, and free to leave it
+const PLAYER_Z = -1.55;
+addSeat({ x: 0, z: PLAYER_Z, ry: 0 }, false, 0);
+const playerSeat = seats[seats.length - 1];
+playerSeat.start = 0.5;
+
+const player = new THREE.Group();
+player.position.set(0, 0, PLAYER_Z);
+const playerFig = buildFigure(M.player, M.player);
+playerFig.position.set(0, 0.6, 0.06);
+playerFig.scale.setScalar(1.05);
+player.add(playerFig);
+scene.add(player);
+
+const playerShadow = makeShadow(1.4, 1.4, 0.9);
+playerShadow.position.set(0, 0.016, PLAYER_Z);
+
+const aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xe6d9c8, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+aura.scale.set(2, 2, 1);
+scene.add(aura);
+
+// ─── Things on the table (they float first) ──────────────────
+const floaters = [];
+function addFloater(mesh, o) {
+    room.add(mesh);
+    floaters.push({
+        mesh,
+        bx: mesh.position.x, by: mesh.position.y, bz: mesh.position.z,
+        brx: mesh.rotation.x, bry: mesh.rotation.y, brz: mesh.rotation.z,
+        start: o.start, span: 0.3, rise: o.rise, dx: o.dx, dz: o.dz,
+        rx: o.rx, ry: o.ry, rz: o.rz, ph: rand(0, TAU), sp: rand(0.8, 1.6)
+    });
+}
+
+const paperGeo = new THREE.BoxGeometry(0.34, 0.008, 0.46);
+for (let i = 0; i < 8; i++) {
+    const p = new THREE.Mesh(paperGeo, M.paper);
+    p.position.set(rand(-1.15, 1.15), 1.068 + i * 0.0012, rand(-0.5, 0.5));
+    p.rotation.y = rand(-0.7, 0.7);
+    addFloater(p, {
+        start: rand(0.08, 0.32), rise: rand(1.8, 4.2), dx: rand(-0.7, 0.7), dz: rand(-0.6, 0.4),
+        rx: rand(-1.3, 1.3), ry: rand(-1.2, 1.2), rz: rand(-1.3, 1.3)
+    });
+}
+
+const cupGeo = new THREE.CylinderGeometry(0.075, 0.058, 0.13, 20);
+[[-0.55, 0.3], [0.7, -0.25], [0.1, 0.42]].forEach(([x, z]) => {
+    const c = new THREE.Mesh(cupGeo, M.cup);
+    c.position.set(x, 1.13, z);
+    addFloater(c, { start: rand(0.2, 0.4), rise: rand(1.4, 3), dx: rand(-0.4, 0.4), dz: rand(-0.3, 0.3), rx: rand(-0.6, 0.6), ry: 0, rz: rand(-0.6, 0.6) });
+});
+
+const penGeo = new THREE.CylinderGeometry(0.011, 0.011, 0.32, 8);
+[[-0.2, -0.1, 0.5], [0.95, 0.15, -0.8]].forEach(([x, z, r]) => {
+    const p = new THREE.Mesh(penGeo, M.cup);
+    p.position.set(x, 1.075, z);
+    p.rotation.set(0, r, Math.PI / 2);
+    addFloater(p, { start: rand(0.14, 0.3), rise: rand(2, 3.6), dx: rand(-0.5, 0.5), dz: rand(-0.4, 0.4), rx: rand(-1.4, 1.4), ry: rand(-1.4, 1.4), rz: rand(-1.4, 1.4) });
+});
+
+[[-0.95, -0.42], [0.95, -0.42]].forEach(([x, z], i) => {
+    const lp = new THREE.Group();
+    lp.add(box(0.5, 0.02, 0.34, M.laptop, 0, 0.01, 0));
+    const scr = box(0.5, 0.32, 0.015, M.laptop, 0, 0.17, -0.17);
+    scr.rotation.x = -0.28;
+    lp.add(scr);
+    lp.position.set(x, 1.065, z);
+    lp.rotation.y = i === 0 ? 0.2 : -0.2;
+    addFloater(lp, { start: rand(0.24, 0.42), rise: rand(1.2, 2.2), dx: rand(-0.3, 0.3), dz: rand(-0.2, 0.2), rx: rand(-0.5, 0.5), ry: rand(-0.8, 0.8), rz: rand(-0.5, 0.5) });
+});
+
+// ─── Ceiling (dissolves into embers) ─────────────────────────
+const HOLE = new THREE.Vector2(0, PLAYER_Z);
+const ceilMat = new THREE.ShaderMaterial({
+    side: THREE.DoubleSide,
+    uniforms: {
+        uR:     { value: -2.4 },
+        uHole:  { value: HOLE },
+        uTime:  { value: 0 },
+        uCream: { value: lin('#e6d9c8') }
+    },
+    vertexShader: `
+        varying vec3 vWorld;
+        void main() {
+            vec4 w = modelMatrix * vec4(position, 1.0);
+            vWorld = w.xyz;
+            gl_Position = projectionMatrix * viewMatrix * w;
+        }`,
+    fragmentShader: `
+        uniform float uR; uniform vec2 uHole; uniform float uTime; uniform vec3 uCream;
+        varying vec3 vWorld;
+        float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float noise(vec2 p) {
+            vec2 i = floor(p), f = fract(p);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
+                       mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+        }
+        float fbm(vec2 p) {
+            float v = 0.0, a = 0.5;
+            for (int i = 0; i < 4; i++) { v += a * noise(p); p *= 2.03; a *= 0.5; }
+            return v;
+        }
+        void main() {
+            vec2 p = vWorld.xz;
+            float n = fbm(p * 0.6 + vec2(uTime * 0.03, 0.0));
+            float edge = (distance(p, uHole) + (n - 0.47) * 2.6) - uR;
+            if (edge < 0.0) discard;
+
+            vec3 col = vec3(0.0055, 0.0115, 0.0185);
+            vec2 g = abs(fract(p / 1.3) - 0.5);
+            col += vec3(0.003, 0.006, 0.009) * smoothstep(0.485, 0.5, max(g.x, g.y));
+
+            vec2 q = abs(p - vec2(0.0, 0.2)) - vec2(0.95, 0.5);
+            float dp = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);
+            float panel = 1.0 - smoothstep(-0.03, 0.05, dp);
+            float halo = exp(-length(p - vec2(0.0, 0.2)) * 0.55);
+            col += uCream * (panel * 0.85 + halo * 0.05);
+
+            float rim = 1.0 - smoothstep(0.0, 0.42, edge);
+            col = mix(col, uCream * 1.25, rim * rim);
+
+            gl_FragColor = vec4(col, 1.0);
+            #include <tonemapping_fragment>
+            #include <encodings_fragment>
+        }`
+});
+const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W + 0.6, ROOM_D), ceilMat);
+ceiling.geometry.rotateX(Math.PI / 2);   // faces down into the room
+ceiling.position.set(0, ROOM_H, 0.2);
+scene.add(ceiling);
+
+// Soft cone of light from the ceiling panel
+const shaftMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false,
+    uniforms: { uOp: { value: 0.16 }, uColor: { value: new THREE.Color(0xf0e2cb) } },
+    vertexShader: `
+        varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+        void main() {
+            vUv = uv;
+            vN = normalize(normalMatrix * normal);
+            vec4 mv = modelViewMatrix * vec4(position, 1.0);
+            vV = normalize(-mv.xyz);
+            gl_Position = projectionMatrix * mv;
+        }`,
+    fragmentShader: `
+        uniform float uOp; uniform vec3 uColor;
+        varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+        void main() {
+            float f = abs(dot(normalize(vN), normalize(vV)));
+            float a = uOp * pow(vUv.y, 2.0) * pow(f, 1.8);
+            gl_FragColor = vec4(uColor, a);
+        }`
+});
+const shaft = new THREE.Mesh(new THREE.ConeGeometry(2.3, ROOM_H - 0.4, 40, 1, true), shaftMat);
+shaft.position.set(0, (ROOM_H - 0.4) / 2 + 0.3, 0.2);
+scene.add(shaft);
+
+// ─── Particles ───────────────────────────────────────────────
+// Ambient motes drifting inside the room
+const DUST_COUNT = 160;
+const dustGeo = new THREE.BufferGeometry();
+const dustPos = new Float32Array(DUST_COUNT * 3);
+const dustVel = new Float32Array(DUST_COUNT * 3);
+for (let i = 0; i < DUST_COUNT; i++) {
+    dustPos[i * 3]     = rand(-4.5, 4.5);
+    dustPos[i * 3 + 1] = rand(0, 6.3);
+    dustPos[i * 3 + 2] = rand(-4, 4);
+    dustVel[i * 3]     = (Math.random() - 0.5) * 0.004;
+    dustVel[i * 3 + 1] = Math.random() * 0.006 + 0.002;
+    dustVel[i * 3 + 2] = (Math.random() - 0.5) * 0.003;
+}
+dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+const dustMat = new THREE.PointsMaterial({
+    size: 0.07, map: sparkTex, color: 0xe6d9c8, transparent: true, opacity: 0.22,
+    sizeAttenuation: true, depthWrite: false, blending: THREE.AdditiveBlending
+});
+const dust = new THREE.Points(dustGeo, dustMat);
+dust.frustumCulled = false;
+scene.add(dust);
+
+// Small ring-buffer particle emitter (used for the dreamer's trail and the ceiling embers)
+function makeEmitter(count, size) {
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(count * 3).fill(-999);
+    const col = new Float32Array(count * 3);
+    const vel = new Float32Array(count * 3);
+    const life = new Float32Array(count);
+    const max = new Float32Array(count).fill(1);
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const mat = new THREE.PointsMaterial({
+        size, map: sparkTex, vertexColors: true, transparent: true,
+        sizeAttenuation: true, depthWrite: false, fog: false, blending: THREE.AdditiveBlending
+    });
+    const pts = new THREE.Points(geo, mat);
+    pts.frustumCulled = false;
+    scene.add(pts);
+    let head = 0;
+    return {
+        emit(x, y, z, vx, vy, vz, l) {
+            const i = head; head = (head + 1) % count;
+            pos[i * 3] = x; pos[i * 3 + 1] = y; pos[i * 3 + 2] = z;
+            vel[i * 3] = vx; vel[i * 3 + 1] = vy; vel[i * 3 + 2] = vz;
+            life[i] = l; max[i] = l;
+        },
+        update(dt) {
+            for (let i = 0; i < count; i++) {
+                if (life[i] <= 0) continue;
+                life[i] -= dt;
+                if (life[i] <= 0) { col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = 0; pos[i * 3 + 1] = -999; continue; }
+                pos[i * 3]     += vel[i * 3] * dt;
+                pos[i * 3 + 1] += vel[i * 3 + 1] * dt;
+                pos[i * 3 + 2] += vel[i * 3 + 2] * dt;
+                const f = life[i] / max[i];
+                const b = Math.min(1, (1 - f) * 10) * Math.min(1, f * 2.2);
+                col[i * 3] = 0.95 * b; col[i * 3 + 1] = 0.88 * b; col[i * 3 + 2] = 0.78 * b;
+            }
+            geo.attributes.position.needsUpdate = true;
+            geo.attributes.color.needsUpdate = true;
+        },
+        clear() { life.fill(0); pos.fill(-999); col.fill(0); geo.attributes.position.needsUpdate = true; geo.attributes.color.needsUpdate = true; }
+    };
+}
+const trail  = makeEmitter(140, 0.2);
+const embers = makeEmitter(200, 0.16);
+
+// ─── Audio (soft pentatonic chimes over a quiet drone) ──────
+let audio = null;
+let soundOn = true;
+const PENTATONIC = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 26, 28];
+
+function initAudio() {
+    if (audio) { if (audio.ctx.state === 'suspended') audio.ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const ctx = new AC();
+    const master = ctx.createGain();
+    master.gain.value = soundOn ? 0.9 : 0;
+    master.connect(ctx.destination);
+
+    const delay = ctx.createDelay(1);
+    delay.delayTime.value = 0.34;
+    const fb = ctx.createGain(); fb.gain.value = 0.38;
+    const wet = ctx.createGain(); wet.gain.value = 0.35;
+    delay.connect(fb); fb.connect(delay);
+    delay.connect(wet); wet.connect(master);
+
+    const drone = ctx.createGain();
+    drone.gain.value = 0;
+    drone.connect(master);
+    [[110, 0.5], [164.8, 0.3], [220.4, 0.18]].forEach(([f, a]) => {
+        const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
+        const g = ctx.createGain(); g.gain.value = a;
+        o.connect(g); g.connect(drone); o.start();
+    });
+    drone.gain.linearRampToValueAtTime(0.05, ctx.currentTime + 3);
+    audio = { ctx, master, delay, drone };
+}
+
+function chime(step, vol = 1) {
+    if (!audio || !soundOn) return;
+    const { ctx, master, delay } = audio;
+    const now = ctx.currentTime;
+    const f = 261.63 * Math.pow(2, PENTATONIC[Math.min(step, PENTATONIC.length - 1)] / 12);
+    [[1, 0.5], [2, 0.16], [3.01, 0.05]].forEach(([m, a]) => {
+        const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * m;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, now);
+        g.gain.linearRampToValueAtTime(a * 0.36 * vol, now + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + 2.6);
+        o.connect(g); g.connect(master); g.connect(delay);
+        o.start(now); o.stop(now + 2.7);
+    });
+}
+
+function setDrone(level) {
+    if (audio) audio.drone.gain.setTargetAtTime(0.04 + 0.07 * level, audio.ctx.currentTime, 0.8);
+}
+
+function toggleSound() {
+    soundOn = !soundOn;
+    document.getElementById('sound-btn').classList.toggle('off', !soundOn);
+    document.getElementById('sound-btn').setAttribute('aria-label', soundOn ? 'Mute sound' : 'Unmute sound');
+    if (audio) audio.master.gain.setTargetAtTime(soundOn ? 0.9 : 0, audio.ctx.currentTime, 0.1);
+}
+
+document.addEventListener('visibilitychange', () => {
+    if (!audio) return;
+    if (document.hidden) audio.ctx.suspend(); else if (soundOn) audio.ctx.resume();
+});
+
+// ─── Game State ──────────────────────────────────────────────
+const TAPS_NEEDED = 13;     // 13 gentle taps to fully lift off
+const MIN_GAP = 0.7;        // seconds between taps; faster than this is straining
+
+let gameState = 'title';    // title | playing | ending | success | epilogue
+let taps = 0;
+let target = 0;             // where lightness is heading (set by taps)
+let L = 0;                  // lightness on screen (eased toward target)
+let lastTap = -10;
+let impulse = 0;            // brief swell on each gentle tap
+let extra = 0;              // afterglow ascent once the dreamer is free
+let exposureTarget = 0.95;
+
+const PHASES = [
+    { at: 0,    main: 'What if this was a dream?',   hint: 'Tap anywhere, gently. Like a slow breath.' },
+    { at: 0.15, main: 'What would I do?',            hint: 'No rush. Just wonder.' },
+    { at: 0.3,  main: 'Float in the meeting?',       hint: 'Let it feel light.' },
+    { at: 0.6,  main: 'Fly through the ceiling?',    hint: 'Suggestion works because it’s light.' },
+    { at: 0.84, main: 'Let go.',                     hint: 'You’re already lifting.' }
+];
+let phaseIdx = 0;
+let strainTimer = null;
+
+const titleScreen = document.getElementById('title-screen');
+const successScreen = document.getElementById('success-screen');
+const epilogueScreen = document.getElementById('epilogue-screen');
+const gameHud = document.getElementById('game-hud');
+const progressFill = document.getElementById('progress-fill');
+const progressPercent = document.getElementById('progress-percent');
+const hudMain = document.getElementById('hud-main');
+const hudHint = document.getElementById('hud-hint');
+const breath = document.getElementById('breath');
+const ripples = document.getElementById('ripples');
+
+function updateHUD() {
+    const pct = Math.round(target * 100);
+    progressFill.style.width = pct + '%';
+    progressPercent.textContent = pct + '%';
+}
+
+function setHudText(main, hint) {
+    hudMain.textContent = main;
+    hudHint.textContent = hint;
+    [hudMain, hudHint].forEach(el => {
+        el.classList.remove('swap');
+        void el.offsetWidth;
+        el.classList.add('swap');
+    });
+}
+
+function showPhaseText() {
+    const p = PHASES[phaseIdx];
+    setHudText(p.main, p.hint);
+}
+
+function replayAnim(root) {
+    root.querySelectorAll('[class*="animate-in"]').forEach(el => {
+        el.style.animation = 'none';
+        void el.offsetWidth;
+        el.style.animation = '';
+    });
+}
+
+function spawnRipple(x, y) {
+    const r = document.createElement('span');
+    r.className = 'ripple';
+    r.style.left = x + 'px';
+    r.style.top = y + 'px';
+    r.addEventListener('animationend', () => r.remove());
+    ripples.appendChild(r);
+}
+
+// ─── Interaction: gentle repetition ──────────────────────────
+function handleTap(x, y) {
+    if (gameState !== 'playing') return;
+    const now = performance.now() / 1000;
+
+    // Too quick: no penalty, just a reminder that effort kills the vibe
+    if (now - lastTap < MIN_GAP) {
+        setHudText('Softer. There’s no rush.', 'Effort kills the vibe.');
+        clearTimeout(strainTimer);
+        strainTimer = setTimeout(() => { if (gameState === 'playing') showPhaseText(); }, 1900);
+        return;
+    }
+
+    lastTap = now;
+    taps++;
+    target = Math.min(1, taps / TAPS_NEEDED);
+    impulse = 1;
+    updateHUD();
+    spawnRipple(x, y);
+    chime(taps - 1);
+    setDrone(target);
+    if (navigator.vibrate) navigator.vibrate(8);
+
+    const next = PHASES.reduce((acc, p, i) => (target >= p.at - 1e-6 ? i : acc), 0);
+    clearTimeout(strainTimer);
+    if (next !== phaseIdx) { phaseIdx = next; showPhaseText(); }
+    else if (hudMain.textContent !== PHASES[phaseIdx].main) showPhaseText();
+}
+
+canvas.addEventListener('pointerdown', e => {
+    if (e.button > 0) return;
+    handleTap(e.clientX, e.clientY);
+});
+
+window.addEventListener('keydown', e => {
+    if (e.code === 'Space' && gameState === 'playing' && !e.repeat) {
+        e.preventDefault();
+        handleTap(window.innerWidth / 2, window.innerHeight * 0.55);
+    }
+});
+
+// ─── Flow ────────────────────────────────────────────────────
+function startGame() {
+    initAudio();
+    gameState = 'playing';
+    titleScreen.classList.add('hidden');
+    gameHud.classList.remove('hidden');
+    phaseIdx = 0;
+    showPhaseText();
+}
+
+function finishFlight() {
+    gameState = 'ending';
+    gameHud.classList.add('hidden');
+    [0, 4, 7, 12].forEach((s, i) => setTimeout(() => chime(s + 3, 0.9), i * 220));
+    setTimeout(showSuccess, 2000);
+}
+
+function showSuccess() {
+    gameState = 'success';
+    successScreen.classList.remove('hidden');
+    replayAnim(successScreen);
+}
+
+function goodnight() {
+    gameState = 'epilogue';
+    exposureTarget = 0.62;
+    if (audio) audio.drone.gain.setTargetAtTime(0.03, audio.ctx.currentTime, 1.5);
+    successScreen.classList.add('hidden');
+    epilogueScreen.classList.remove('hidden');
+    epilogueScreen.classList.remove('epilogue-run');
+    void epilogueScreen.offsetWidth;
+    epilogueScreen.classList.add('epilogue-run');
+}
+
+function restart() {
+    clearTimeout(strainTimer);
+    taps = 0; target = 0; L = 0; extra = 0; impulse = 0; lastTap = -10; phaseIdx = 0;
+    exposureTarget = 0.95;
+    trail.clear(); embers.clear();
+    updateHUD();
+    setDrone(0);
+    epilogueScreen.classList.add('hidden');
+    epilogueScreen.classList.remove('epilogue-run');
+    successScreen.classList.add('hidden');
+    gameHud.classList.add('hidden');
+    titleScreen.classList.remove('hidden');
+    replayAnim(titleScreen);
+    gameState = 'title';
+}
+
+// ─── Animation Loop ─────────────────────────────────────────
+const clock = new THREE.Clock();
+let time = 0, trailAcc = 0, emberAcc = 0;
+
+// Where the dreamer floats, as a function of lightness
+function dreamerHeight(l) {
+    return 2.1 * smooth(0.24, 0.6, l) + 9.2 * Math.pow(smooth(0.72, 1.0, l), 1.5);
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    const dt = Math.min(clock.getDelta(), 0.05);
+    time += dt;
+    const t = time;
+
+    // Ease lightness toward its target (never snaps: ease is the fuel)
+    L += (target - L) * (1 - Math.exp(-dt * 1.7));
+    impulse *= Math.exp(-dt * 2.4);
+    if (gameState === 'playing' && target >= 1 && L > 0.985) finishFlight();
+    if (gameState === 'ending' || gameState === 'success' || gameState === 'epilogue') extra += dt * (gameState === 'ending' ? 0.9 : 0.55);
+
+    // Ready ring
+    breath.classList.toggle('ready', gameState === 'playing' && performance.now() / 1000 - lastTap >= MIN_GAP);
+
+    // Sky
+    starsBack.rotation.y = Math.sin(t * 0.07) * 0.02;
+    starsBack.material.opacity = 0.5 + smooth(0.5, 1, L) * 0.25;
+    starsHigh.material.opacity = 0.08 + smooth(0.45, 0.95, L) * 0.6;
+    moonHalo.material.opacity = 0.3 + smooth(0.6, 1, L) * 0.25;
+
+    // Motes
+    const dArr = dustGeo.attributes.position.array;
+    const dIntensity = 0.5 + L * 2.6;
+    for (let i = 0; i < DUST_COUNT; i++) {
+        dArr[i * 3]     += dustVel[i * 3] * dIntensity;
+        dArr[i * 3 + 1] += dustVel[i * 3 + 1] * dIntensity;
+        dArr[i * 3 + 2] += dustVel[i * 3 + 2] * dIntensity;
+        if (dArr[i * 3 + 1] > 6.3 + L * 5) {
+            dArr[i * 3]     = rand(-4.5, 4.5);
+            dArr[i * 3 + 1] = -0.2;
+            dArr[i * 3 + 2] = rand(-4, 4);
+        }
+    }
+    dustGeo.attributes.position.needsUpdate = true;
+    dustMat.opacity = 0.2 + L * 0.3;
+
+    // Floating objects: papers, cups, pens and laptops let go one by one
+    for (const f of floaters) {
+        const k = smooth(f.start, f.start + f.span, L);
+        const w = Math.sin(t * f.sp + f.ph);
+        f.mesh.position.set(
+            f.bx + f.dx * k + w * 0.05 * k * MOTION,
+            f.by + f.rise * k + Math.sin(t * f.sp * 0.8 + f.ph) * 0.07 * k * MOTION,
+            f.bz + f.dz * k
+        );
+        f.mesh.rotation.set(
+            f.brx + f.rx * k + w * 0.14 * k * MOTION,
+            f.bry + f.ry * k,
+            f.brz + f.rz * k + Math.cos(t * f.sp + f.ph) * 0.14 * k * MOTION
+        );
+    }
+
+    // Chairs and the people in them drift, and look up at the dreamer
+    const lookUp = smooth(0.3, 0.6, L);
+    for (const s of seats) {
+        const k = smooth(s.start, s.start + 0.35, L);
+        const bob = Math.sin(t * 0.9 + s.ph) * 0.06 * k * MOTION;
+        s.g.position.y = s.rise * k + bob;
+        s.g.rotation.y = s.def.ry + s.yaw * k + Math.sin(t * 0.5 + s.ph) * 0.04 * k * MOTION;
+        if (s.fig) s.fig.rotation.x = -0.24 * lookUp + Math.sin(t * 0.7 + s.tiltPh) * 0.02;
+        s.shadow.material.opacity = 0.85 * (1 - k * 0.7);
+        const sc = 1.5 * (1 + k * 0.25);
+        s.shadow.scale.set(sc, sc, 1);
+    }
+
+    // The dreamer
+    const py = dreamerHeight(L) + extra * (1 + extra * 0.15);
+    const standUp = smooth(0.24, 0.6, L);
+    const flying = smooth(0.72, 1.0, L);
+    player.position.y = py + Math.sin(t * 1.1) * 0.07 * standUp * MOTION;
+    player.rotation.z = Math.sin(t * 0.8) * 0.06 * standUp * MOTION - flying * 0.1;
+    playerFig.rotation.x = -flying * 0.18;
+    const cx = 0, cy = player.position.y + 1.6, cz = PLAYER_Z;
+    aura.position.set(cx, cy, cz + 0.2);
+    const auraScale = lerp(1.7, 4.2, smooth(0.15, 1, L)) + impulse * 0.9;
+    aura.scale.set(auraScale, auraScale, 1);
+    aura.material.opacity = 0.14 + 0.42 * smooth(0.12, 0.9, L) + impulse * 0.22;
+    playerLight.position.set(0, cy, cz + 1);
+    playerLight.intensity = 0.35 + 1.1 * smooth(0.15, 0.9, L) + impulse * 0.6;
+    playerShadow.material.opacity = 0.9 * (1 - smooth(0, 3, py));
+    const psc = 1.4 + smooth(0, 3, py) * 0.6;
+    playerShadow.scale.set(psc, psc, 1);
+    playerFig.parent.visible = py < 24;
+
+    // The dreamer's trail of light
+    if (standUp > 0.05 && gameState !== 'title') {
+        trailAcc += dt * (10 + flying * 60);
+        while (trailAcc > 1) {
+            trailAcc -= 1;
+            trail.emit(rand(-0.3, 0.3), player.position.y + rand(0.4, 1.9), PLAYER_Z + rand(-0.25, 0.25),
+                rand(-0.15, 0.15), -rand(0.05, 0.4) - flying * 0.5, rand(-0.1, 0.1), rand(1.2, 2.4));
+        }
+    }
+    trail.update(dt);
+
+    // Ceiling dissolve + embers along its glowing edge
+    const R = lerp(-2.4, 10.5, Math.pow(smooth(0.58, 1.02, L), 1.3));
+    ceilMat.uniforms.uR.value = R;
+    ceilMat.uniforms.uTime.value = t;
+    if (R > 0.2 && R < 9.6) {
+        emberAcc += dt * 55;
+        while (emberAcc > 1) {
+            emberAcc -= 1;
+            const a = rand(0, TAU), rr = R + rand(-0.35, 0.25);
+            const ex = HOLE.x + Math.cos(a) * rr, ez = HOLE.y + Math.sin(a) * rr;
+            if (Math.abs(ex) < 5.2 && ez > -4.4 && ez < 4.9) {
+                embers.emit(ex, ROOM_H - 0.05, ez, rand(-0.12, 0.12), rand(0.25, 0.8), rand(-0.12, 0.12), rand(1.4, 2.8));
+            }
+        }
+    }
+    embers.update(dt);
+
+    // Light shaft, lamp and ambient mood
+    const roofGone = smooth(0.4, 0.75, L);
+    shaftMat.uniforms.uOp.value = 0.16 * (1 - roofGone);
+    lamp.intensity = 1.6 * (1 - roofGone * 0.7);
+    windowLight.intensity = 1.2 + L * 0.5;
+    ambient.intensity = 0.3 + Math.sin(t * 0.5) * 0.03 + L * 0.2;
+
+    // Camera follows the dreamer up and out
+    const follow = Math.max(0, py - 3.4);
+    const camY = 4.4 + follow * 0.5;
+    const lookY = 2.5 + Math.max(0, py - 2.6) * 0.95;
+    camera.position.set(Math.sin(t * 0.21) * 0.14 * MOTION, camY, camDist - smooth(0.75, 1, L) * 1.5);
+    camera.lookAt(0, lookY, 0);
+    camera.fov = BASE_FOV + impulse * 1.4 * MOTION;
+    camera.updateProjectionMatrix();
+
+    renderer.toneMappingExposure += (exposureTarget - renderer.toneMappingExposure) * (1 - Math.exp(-dt * 0.8));
+    renderer.render(scene, camera);
+}
+animate();
+
+// ─── Resize ─────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+    fitCamera();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
