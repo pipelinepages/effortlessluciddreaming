@@ -18,12 +18,16 @@
             touch-action: none;
             -webkit-font-smoothing: antialiased;
             user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
         canvas#scene {
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
+            touch-action: none;
+            display: block;
         }
 
         .screen {
@@ -35,6 +39,10 @@
             justify-content: center;
             text-align: center;
             padding: 24px;
+            padding-top: calc(24px + env(safe-area-inset-top, 0px));
+            padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+            padding-left: calc(24px + env(safe-area-inset-left, 0px));
+            padding-right: calc(24px + env(safe-area-inset-right, 0px));
             z-index: 10;
             transition: opacity 0.8s ease, transform 0.8s ease;
         }
@@ -215,6 +223,10 @@
             flex-direction: column;
             justify-content: space-between;
             padding: 20px;
+            padding-top: calc(20px + env(safe-area-inset-top, 0px));
+            padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+            padding-left: calc(20px + env(safe-area-inset-left, 0px));
+            padding-right: calc(20px + env(safe-area-inset-right, 0px));
             transition: opacity 0.6s ease;
         }
 
@@ -330,6 +342,8 @@
         @media (max-width: 480px) {
             .screen {
                 padding: 20px;
+                padding-top: calc(20px + env(safe-area-inset-top, 0px));
+                padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
             }
 
             .email-gate {
@@ -347,6 +361,40 @@
             .privacy-note {
                 padding: 0 15px;
             }
+
+            .hud-instruction {
+                padding: 8px 18px;
+            }
+
+            .hud-instruction p {
+                font-size: 0.82rem;
+            }
+
+            .hud-bottom {
+                max-width: 240px;
+            }
+        }
+
+        /* Short / landscape phones */
+        @media (max-height: 500px) {
+            h1 { font-size: clamp(1.9rem, 7vh, 3rem); }
+            h2 { font-size: clamp(1.6rem, 6.5vh, 2.6rem); }
+            .subtitle { font-size: 0.85rem; }
+            blockquote {
+                font-size: 0.95rem;
+                margin-top: 16px;
+                line-height: 1.5;
+            }
+            .btn {
+                margin-top: 20px;
+                padding: 11px 32px;
+                font-size: 0.92rem;
+            }
+            .email-gate h2 { margin-bottom: 10px; }
+            .email-gate .email-subtitle { font-size: 0.88rem; }
+            .signup-form { margin-top: 16px; }
+            .signup-input, .signup-button { height: 46px; }
+            .privacy-note { margin-top: 10px; }
         }
     </style>
 </head>
@@ -617,6 +665,36 @@ const chalkPieceMat = new THREE.MeshStandardMaterial({ color: '#d4cbb8', roughne
     boardGroup.add(piece);
 });
 
+// ─── Responsive Framing ─────────────────────────────────────
+// The chalkboard is landscape-shaped. On narrow/portrait screens a
+// fixed camera crops it, so we scale the whole board group so it
+// always fits fully inside the visible frustum. On wide screens the
+// computed scale is clamped to 1, so the original look is unchanged.
+const FIT_W = BOARD_W + 0.25;   // board + wooden frame
+const FIT_H = BOARD_H + 0.42;   // board + frame + chalk tray
+const FIT_MARGIN = 0.94;        // a little breathing room
+
+function fitBoardToScreen() {
+    const aspect = window.innerWidth / window.innerHeight;
+
+    camera.aspect = aspect;
+    camera.updateProjectionMatrix();
+
+    const dist = Math.abs(camera.position.z - boardGroup.position.z);
+    const visH = 2 * dist * Math.tan((camera.fov * Math.PI / 180) / 2);
+    const visW = visH * aspect;
+
+    const scale = Math.min(
+        1,
+        (visW * FIT_MARGIN) / FIT_W,
+        (visH * FIT_MARGIN) / FIT_H
+    );
+
+    boardGroup.scale.setScalar(scale);
+}
+
+fitBoardToScreen();
+
 // ─── Erasing Logic ──────────────────────────────────────────
 let gameState = 'title'; // title | email | playing | success
 let progress = 0;
@@ -759,6 +837,7 @@ function startGame() {
     emailScreen.classList.add('hidden');
     gameHud.classList.remove('hidden');
     boardGroup.visible = true;
+    fitBoardToScreen();
 }
 
 function showSuccess() {
@@ -830,10 +909,16 @@ function animate() {
 animate();
 
 // ─── Resize ─────────────────────────────────────────────────
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
+function onResize() {
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
+    fitBoardToScreen();
+}
+
+window.addEventListener('resize', onResize);
+window.addEventListener('orientationchange', () => {
+    // Wait for the browser to settle on the new viewport dimensions
+    setTimeout(onResize, 120);
 });
 </script>
 </body>
