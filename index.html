@@ -18,16 +18,12 @@
             touch-action: none;
             -webkit-font-smoothing: antialiased;
             user-select: none;
-            -webkit-user-select: none;
-            -webkit-tap-highlight-color: transparent;
         }
 
         canvas#scene {
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            touch-action: none;
-            display: block;
         }
 
         .screen {
@@ -39,10 +35,6 @@
             justify-content: center;
             text-align: center;
             padding: 24px;
-            padding-top: calc(24px + env(safe-area-inset-top, 0px));
-            padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
-            padding-left: calc(24px + env(safe-area-inset-left, 0px));
-            padding-right: calc(24px + env(safe-area-inset-right, 0px));
             z-index: 10;
             transition: opacity 0.8s ease, transform 0.8s ease;
         }
@@ -223,10 +215,6 @@
             flex-direction: column;
             justify-content: space-between;
             padding: 20px;
-            padding-top: calc(20px + env(safe-area-inset-top, 0px));
-            padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
-            padding-left: calc(20px + env(safe-area-inset-left, 0px));
-            padding-right: calc(20px + env(safe-area-inset-right, 0px));
             transition: opacity 0.6s ease;
         }
 
@@ -342,8 +330,6 @@
         @media (max-width: 480px) {
             .screen {
                 padding: 20px;
-                padding-top: calc(20px + env(safe-area-inset-top, 0px));
-                padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
             }
 
             .email-gate {
@@ -361,40 +347,6 @@
             .privacy-note {
                 padding: 0 15px;
             }
-
-            .hud-instruction {
-                padding: 8px 18px;
-            }
-
-            .hud-instruction p {
-                font-size: 0.82rem;
-            }
-
-            .hud-bottom {
-                max-width: 240px;
-            }
-        }
-
-        /* Short / landscape phones */
-        @media (max-height: 500px) {
-            h1 { font-size: clamp(1.9rem, 7vh, 3rem); }
-            h2 { font-size: clamp(1.6rem, 6.5vh, 2.6rem); }
-            .subtitle { font-size: 0.85rem; }
-            blockquote {
-                font-size: 0.95rem;
-                margin-top: 16px;
-                line-height: 1.5;
-            }
-            .btn {
-                margin-top: 20px;
-                padding: 11px 32px;
-                font-size: 0.92rem;
-            }
-            .email-gate h2 { margin-bottom: 10px; }
-            .email-gate .email-subtitle { font-size: 0.88rem; }
-            .signup-form { margin-top: 16px; }
-            .signup-input, .signup-button { height: 46px; }
-            .privacy-note { margin-top: 10px; }
         }
     </style>
 </head>
@@ -554,7 +506,22 @@ scene.add(dust);
 // ─── Chalkboard ─────────────────────────────────────────────
 const BOARD_W = 4.8, BOARD_H = 3.2;
 const TEX_W = 512, TEX_H = 340;
-const ERASE_RADIUS = 30;
+
+/* ============================================================
+   ERASER TUNING
+   ------------------------------------------------------------
+   ERASE_RADIUS   was 30  → 90   (~9× the erased area, i.e. the
+                                  "10× eraser" you asked for,
+                                  without one tap nuking the
+                                  whole board)
+   ERASE_STRENGTH was 0.55 → 1.0 (full-strength core, so a
+                                  single pass actually clears)
+   ERASE_STEP     stroke spacing as a fraction of the radius,
+                  so fast swipes leave no gaps.
+   ============================================================ */
+const ERASE_RADIUS = 90;
+const ERASE_STRENGTH = 1.0;
+const ERASE_STEP = 0.3;
 
 const boardGroup = new THREE.Group();
 boardGroup.visible = false;
@@ -665,36 +632,6 @@ const chalkPieceMat = new THREE.MeshStandardMaterial({ color: '#d4cbb8', roughne
     boardGroup.add(piece);
 });
 
-// ─── Responsive Framing ─────────────────────────────────────
-// The chalkboard is landscape-shaped. On narrow/portrait screens a
-// fixed camera crops it, so we scale the whole board group so it
-// always fits fully inside the visible frustum. On wide screens the
-// computed scale is clamped to 1, so the original look is unchanged.
-const FIT_W = BOARD_W + 0.25;   // board + wooden frame
-const FIT_H = BOARD_H + 0.42;   // board + frame + chalk tray
-const FIT_MARGIN = 0.94;        // a little breathing room
-
-function fitBoardToScreen() {
-    const aspect = window.innerWidth / window.innerHeight;
-
-    camera.aspect = aspect;
-    camera.updateProjectionMatrix();
-
-    const dist = Math.abs(camera.position.z - boardGroup.position.z);
-    const visH = 2 * dist * Math.tan((camera.fov * Math.PI / 180) / 2);
-    const visW = visH * aspect;
-
-    const scale = Math.min(
-        1,
-        (visW * FIT_MARGIN) / FIT_W,
-        (visH * FIT_MARGIN) / FIT_H
-    );
-
-    boardGroup.scale.setScalar(scale);
-}
-
-fitBoardToScreen();
-
 // ─── Erasing Logic ──────────────────────────────────────────
 let gameState = 'title'; // title | email | playing | success
 let progress = 0;
@@ -702,17 +639,44 @@ let isDragging = false;
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 
-function eraseAt(uv) {
-    const x = uv.x * TEX_W;
-    const y = (1 - uv.y) * TEX_H;
+// Last erased point in texture space, for stroke interpolation
+let lastX = null, lastY = null;
+
+// One soft round stamp of eraser
+function stamp(x, y) {
     const grad = maskCtx.createRadialGradient(x, y, 0, x, y, ERASE_RADIUS);
-    grad.addColorStop(0, 'rgba(255,255,255,0.55)');
-    grad.addColorStop(0.5, 'rgba(255,255,255,0.25)');
-    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    grad.addColorStop(0,    `rgba(255,255,255,${ERASE_STRENGTH})`);
+    grad.addColorStop(0.55, `rgba(255,255,255,${ERASE_STRENGTH * 0.72})`);
+    grad.addColorStop(0.82, `rgba(255,255,255,${ERASE_STRENGTH * 0.3})`);
+    grad.addColorStop(1,    'rgba(255,255,255,0)');
+
     maskCtx.fillStyle = grad;
     maskCtx.beginPath();
     maskCtx.arc(x, y, ERASE_RADIUS, 0, Math.PI * 2);
     maskCtx.fill();
+}
+
+// Erase from the last point to this one, so fast swipes don't skip
+function eraseStroke(uv) {
+    const x = uv.x * TEX_W;
+    const y = (1 - uv.y) * TEX_H;
+
+    if (lastX === null) {
+        stamp(x, y);
+    } else {
+        const dx = x - lastX;
+        const dy = y - lastY;
+        const dist = Math.hypot(dx, dy);
+        const step = Math.max(1, ERASE_RADIUS * ERASE_STEP);
+        const steps = Math.max(1, Math.ceil(dist / step));
+
+        for (let i = 1; i <= steps; i++) {
+            stamp(lastX + (dx * i) / steps, lastY + (dy * i) / steps);
+        }
+    }
+
+    lastX = x;
+    lastY = y;
 }
 
 function calcProgress() {
@@ -733,7 +697,7 @@ function handleInteraction(clientX, clientY) {
     raycaster.setFromCamera(pointer, camera);
     const hits = raycaster.intersectObject(chalkMesh);
     if (hits.length > 0 && hits[0].uv) {
-        eraseAt(hits[0].uv);
+        eraseStroke(hits[0].uv);
         compositeBoard();
         progress = Math.min(calcProgress(), 1);
         updateHUD();
@@ -741,16 +705,32 @@ function handleInteraction(clientX, clientY) {
     }
 }
 
-// Pointer events
-canvas.addEventListener('pointerdown', e => { isDragging = true; handleInteraction(e.clientX, e.clientY); });
-canvas.addEventListener('pointermove', e => { if (isDragging) handleInteraction(e.clientX, e.clientY); });
-canvas.addEventListener('pointerup', () => isDragging = false);
-canvas.addEventListener('pointerleave', () => isDragging = false);
+function startStroke(clientX, clientY) {
+    isDragging = true;
+    lastX = null;
+    lastY = null;
+    handleInteraction(clientX, clientY);
+}
 
-// Touch events (fallback)
-canvas.addEventListener('touchstart', e => { isDragging = true; handleInteraction(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
-canvas.addEventListener('touchmove', e => { if (isDragging && e.touches.length) handleInteraction(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
-canvas.addEventListener('touchend', () => isDragging = false);
+function endStroke() {
+    isDragging = false;
+    lastX = null;
+    lastY = null;
+}
+
+// Pointer events
+canvas.addEventListener('pointerdown', e => startStroke(e.clientX, e.clientY));
+canvas.addEventListener('pointermove', e => { if (isDragging) handleInteraction(e.clientX, e.clientY); });
+canvas.addEventListener('pointerup', endStroke);
+canvas.addEventListener('pointercancel', endStroke);
+canvas.addEventListener('pointerleave', endStroke);
+
+// Touch fallback for browsers without Pointer Events
+if (!window.PointerEvent) {
+    canvas.addEventListener('touchstart', e => { startStroke(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+    canvas.addEventListener('touchmove', e => { if (isDragging && e.touches.length) handleInteraction(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+    canvas.addEventListener('touchend', endStroke);
+}
 
 // ─── UI Controls ────────────────────────────────────────────
 const titleScreen = document.getElementById('title-screen');
@@ -837,7 +817,6 @@ function startGame() {
     emailScreen.classList.add('hidden');
     gameHud.classList.remove('hidden');
     boardGroup.visible = true;
-    fitBoardToScreen();
 }
 
 function showSuccess() {
@@ -909,16 +888,10 @@ function animate() {
 animate();
 
 // ─── Resize ─────────────────────────────────────────────────
-function onResize() {
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-    fitBoardToScreen();
-}
-
-window.addEventListener('resize', onResize);
-window.addEventListener('orientationchange', () => {
-    // Wait for the browser to settle on the new viewport dimensions
-    setTimeout(onResize, 120);
 });
 </script>
 </body>
