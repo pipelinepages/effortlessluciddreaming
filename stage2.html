@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Effortless Lucid Dreaming</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <style>
@@ -16,11 +16,15 @@
             touch-action: none;
             -webkit-font-smoothing: antialiased;
             user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
         canvas#scene {
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
+            touch-action: none;
+            display: block;
         }
         .screen {
             position: fixed;
@@ -31,6 +35,10 @@
             justify-content: center;
             text-align: center;
             padding: 24px;
+            padding-top: calc(24px + env(safe-area-inset-top, 0px));
+            padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+            padding-left: calc(24px + env(safe-area-inset-left, 0px));
+            padding-right: calc(24px + env(safe-area-inset-right, 0px));
             z-index: 10;
             transition: opacity 0.8s ease, transform 0.8s ease;
         }
@@ -97,23 +105,26 @@
         #story-text {
             background: rgba(15,31,42,0.85);
             border-radius: 18px;
-            padding: 32px 28px;
-            font-size: 1.35rem;
+            padding: clamp(18px, 5vw, 32px) clamp(16px, 5vw, 28px);
+            font-size: clamp(1.05rem, 4.2vw, 1.35rem);
             line-height: 1.65;
             text-align: left;
             color: #e6d9c8;
             box-shadow: 0 0 40px rgba(230,217,200,0.15);
-            max-height: 420px;
+            max-height: min(420px, 55vh);
             overflow-y: auto;
             scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
         }
         #story-text::-webkit-scrollbar { display: none; }
         #video-player {
             width: 100%;
-            height: 520px;
+            height: min(520px, 55vh);
+            min-height: 260px;
             border-radius: 18px;
             background: #000;
             box-shadow: 0 0 60px rgba(230,217,200,0.2);
+            display: block;
         }
 
         /* Game HUD */
@@ -126,6 +137,10 @@
             flex-direction: column;
             justify-content: space-between;
             padding: 20px;
+            padding-top: calc(20px + env(safe-area-inset-top, 0px));
+            padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+            padding-left: calc(20px + env(safe-area-inset-left, 0px));
+            padding-right: calc(20px + env(safe-area-inset-right, 0px));
             transition: opacity 0.6s ease;
         }
         #game-hud.hidden { opacity: 0; }
@@ -133,6 +148,7 @@
         .hud-instruction {
             background: rgba(6, 14, 24, 0.65);
             backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             padding: 10px 24px;
             border-radius: 40px;
             border: 1px solid rgba(230, 217, 200, 0.08);
@@ -177,7 +193,7 @@
         }
         blockquote {
             max-width: 380px;
-            font-size: 1.15rem;
+            font-size: clamp(1rem, 4vw, 1.15rem);
             line-height: 1.7;
             font-style: italic;
             opacity: 0.75;
@@ -191,6 +207,42 @@
         .animate-in { animation: fadeInUp 0.9s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
         .animate-in-delay { opacity: 0; animation: fadeInUp 0.9s cubic-bezier(0.23, 1, 0.32, 1) 0.2s forwards; }
         .animate-in-delay2 { opacity: 0; animation: fadeInUp 0.9s cubic-bezier(0.23, 1, 0.32, 1) 0.4s forwards; }
+
+        /* Small phones */
+        @media (max-width: 480px) {
+            .screen {
+                padding: 20px;
+                padding-top: calc(20px + env(safe-area-inset-top, 0px));
+                padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+            }
+            .subtitle { font-size: 0.9rem; letter-spacing: 1.5px; }
+            .hud-instruction { padding: 8px 18px; }
+            .hud-instruction p { font-size: 0.82rem; }
+            .hud-bottom { max-width: 240px; }
+            #content-modal .modal-title { font-size: 1.1rem; margin-bottom: 10px; }
+            #video-player { height: min(460px, 52vh); min-height: 240px; }
+            #story-text { max-height: 52vh; }
+        }
+
+        /* Short / landscape phones */
+        @media (max-height: 500px) {
+            h1 { font-size: clamp(1.9rem, 7vh, 3rem); }
+            h2 { font-size: clamp(1.6rem, 6.5vh, 2.6rem); }
+            .subtitle { font-size: 0.85rem; }
+            blockquote {
+                font-size: 0.95rem;
+                margin-top: 14px;
+                line-height: 1.5;
+            }
+            .btn {
+                margin-top: 18px;
+                padding: 11px 32px;
+                font-size: 0.92rem;
+            }
+            #content-modal .modal-title { font-size: 1rem; margin-bottom: 8px; }
+            #video-player { height: 55vh; min-height: 180px; border-radius: 12px; }
+            #story-text { max-height: 55vh; border-radius: 12px; }
+        }
     </style>
 </head>
 <body>
@@ -239,13 +291,13 @@
 <div id="content-modal" class="screen hidden">
     <div class="modal-inner">
         <div class="modal-title" id="content-title"></div>
-        
+
         <!-- Story view -->
         <div id="story-text" style="display:none;"></div>
-        
+
         <!-- Video view -->
-        <iframe id="video-player" frameborder="0" allowfullscreen allow="autoplay; fullscreen" style="display:none; width:100%; height:520px;"></iframe>
-        
+        <iframe id="video-player" frameborder="0" allowfullscreen allow="autoplay; fullscreen; encrypted-media" style="display:none;"></iframe>
+
         <button class="btn" onclick="closeContentModal()" style="width:100%; max-width:320px; margin-top:24px;">
             Done — Let it sink in
         </button>
@@ -266,7 +318,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color('#060e18');
 scene.fog = new THREE.Fog('#060e18', 8, 28);
 
-const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 50);
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 60);
 camera.position.set(0, 0.6, 7.5);
 
 // ─── Lighting ────────────────────────────────────────────────
@@ -340,12 +392,12 @@ function createCardTexture(item) {
     grad.addColorStop(1, 'rgba(230,217,200,0)');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, TEX_W, TEX_H);
-    
+
     ctx.shadowColor = '#e6d9c8';
     ctx.shadowBlur = 14;
     ctx.fillStyle = '#e6d9c8';
     ctx.textBaseline = 'top';
-    
+
     if (item.type === 'story') {
         ctx.font = '400 22px Inter, sans-serif';
         const lines = item.text.split('\n');
@@ -379,15 +431,8 @@ function createCard(i) {
     const mat = new THREE.MeshPhongMaterial({ map: tex, transparent: true, opacity: 0.96, shininess: 4, emissive: 0x112233, emissiveIntensity: 0.2 });
     const geo = new THREE.PlaneGeometry(CARD_W, CARD_H);
     const mesh = new THREE.Mesh(geo, mat);
-    
-    const angle = (i - 2.5) * 0.42;
-    mesh.position.x = Math.sin(angle) * 3.8;
-    mesh.position.y = Math.cos(angle) * 0.9 - 0.4;
-    mesh.position.z = -0.8 + Math.random() * 1.2;
-    mesh.rotation.y = angle * -0.6;
-    
     cardGroup.add(mesh);
-    return { mesh, originalY: mesh.position.y, absorbed: false, item, tex };
+    return { mesh, originalY: 0, absorbed: false, item, tex };
 }
 
 for (let i = 0; i < 6; i++) cards.push(createCard(i));
@@ -397,6 +442,68 @@ const orb = new THREE.Mesh(new THREE.SphereGeometry(0.65, 32, 32),
     new THREE.MeshPhongMaterial({ color: 0x112233, emissive: 0xa8c0d8, emissiveIntensity: 0.6, shininess: 12, transparent: true, opacity: 0.35 }));
 orb.position.set(0, 0.1, -1.2);
 scene.add(orb);
+
+// ─── Responsive Card Layout ─────────────────────────────────
+// Desktop (aspect >= 1)   → keep the original curved arc layout.
+// Mobile / portrait        → re-arrange the 6 cards in a 2×3 grid
+//                            and pull the camera to fit everything
+//                            inside the visible frustum.
+function layoutCards() {
+    const aspect = window.innerWidth / window.innerHeight;
+    const isPortrait = aspect < 1.0;
+
+    if (isPortrait) {
+        const cols = 2, rows = 3;
+        const gapX = 0.42;
+        const gapY = 0.55;
+        const totalW = cols * CARD_W + (cols - 1) * gapX;
+        const totalH = rows * CARD_H + (rows - 1) * gapY;
+        const margin = 1.18;
+
+        const visHForHeight = totalH * margin;
+        const visHForWidth  = (totalW * margin) / aspect;
+        const visH = Math.max(visHForHeight, visHForWidth);
+        const dist = visH / (2 * Math.tan((camera.fov * Math.PI) / 360));
+
+        const camY = 0.2;
+        camera.position.set(0, camY, dist);
+        camera.lookAt(0, camY, 0);
+
+        cards.forEach((card, i) => {
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            card.mesh.position.x = (col - (cols - 1) / 2) * (CARD_W + gapX);
+            card.mesh.position.y = ((rows - 1) / 2 - row) * (CARD_H + gapY) + camY;
+            card.mesh.position.z = 0;
+            card.mesh.rotation.set(0, 0, 0);
+            card.originalY = card.mesh.position.y;
+        });
+
+        // Keep fog relative to camera so cards are never washed out.
+        scene.fog.near = dist + 0.5;
+        scene.fog.far  = dist + 22;
+    } else {
+        const camY = 0.6;
+        camera.position.set(0, camY, 7.5);
+        camera.lookAt(0, camY, 0);
+
+        cards.forEach((card, i) => {
+            const angle = (i - 2.5) * 0.42;
+            card.mesh.position.x = Math.sin(angle) * 3.8;
+            card.mesh.position.y = Math.cos(angle) * 0.9 - 0.4;
+            card.mesh.position.z = -0.7 + (i % 3) * 0.5;
+            card.mesh.rotation.set(0, angle * -0.6, 0);
+            card.originalY = card.mesh.position.y;
+        });
+
+        scene.fog.near = 8;
+        scene.fog.far  = 28;
+    }
+
+    camera.aspect = aspect;
+    camera.updateProjectionMatrix();
+}
+layoutCards();
 
 // ─── Modal Logic ─────────────────────────────────────────────
 let currentCard = null;
@@ -408,7 +515,7 @@ const videoPlayer = document.getElementById('video-player');
 function openContentModal(card) {
     currentCard = card;
     contentTitle.textContent = card.item.type === 'story' ? "A Lucid Dream Story" : card.item.title;
-    
+
     if (card.item.type === 'story') {
         storyText.style.display = 'block';
         videoPlayer.style.display = 'none';
@@ -417,12 +524,12 @@ function openContentModal(card) {
     } else {
         storyText.style.display = 'none';
         videoPlayer.style.display = 'block';
-        const embed = card.item.platform === 'youtube' 
-            ? `https://www.youtube.com/embed/${card.item.vid}?autoplay=1&rel=0&modestbranding=1&playsinline=1` 
+        const embed = card.item.platform === 'youtube'
+            ? `https://www.youtube.com/embed/${card.item.vid}?autoplay=1&rel=0&modestbranding=1&playsinline=1`
             : `https://www.tiktok.com/embed/v2/${card.item.vid}?autoplay=1`;
         videoPlayer.src = embed;
     }
-    
+
     contentModal.classList.remove('hidden');
     contentModal.style.opacity = '1';
 }
@@ -430,12 +537,12 @@ function openContentModal(card) {
 function closeContentModal() {
     videoPlayer.src = '';
     contentModal.style.opacity = '0';
-    
+
     setTimeout(() => {
         contentModal.classList.add('hidden');
         storyText.style.display = 'none';
         videoPlayer.style.display = 'none';
-        
+
         if (currentCard && !currentCard.absorbed) {
             absorbCard(currentCard);
         }
@@ -457,10 +564,10 @@ function absorbCard(card) {
     absorbedCount++;
     progress = Math.min(1, absorbedCount / 6);
     updateHUD();
-    
+
     const startPos = card.mesh.position.clone();
     const targetPos = new THREE.Vector3(0, 0.2, -1.8);
-    
+
     let t = 0;
     const interval = setInterval(() => {
         t += 0.085;
@@ -474,7 +581,7 @@ function absorbCard(card) {
         card.mesh.position.copy(p);
         card.mesh.scale.setScalar(1 - t * 0.7);
         card.mesh.material.opacity = 1 - t * 0.95;
-        
+
         if (Math.random() > 0.6) {
             const dArr = dust.geometry.attributes.position.array;
             const idx = Math.floor(Math.random() * DUST_COUNT) * 3;
@@ -485,14 +592,14 @@ function absorbCard(card) {
 
 function handleInteraction(clientX, clientY) {
     if (gameState !== 'playing') return;
-    
+
     const rect = canvas.getBoundingClientRect();
     pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
-    
+
     raycaster.setFromCamera(pointer, camera);
     const hits = raycaster.intersectObjects(cards.map(c => c.mesh));
-    
+
     if (hits.length > 0) {
         const hitMesh = hits[0].object;
         const card = cards.find(c => c.mesh === hitMesh);
@@ -507,7 +614,7 @@ canvas.addEventListener('pointermove', e => { if (isDragging) handleInteraction(
 canvas.addEventListener('pointerup', () => isDragging = false);
 canvas.addEventListener('pointerleave', () => isDragging = false);
 canvas.addEventListener('touchstart', e => { isDragging = true; handleInteraction(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
-canvas.addEventListener('touchmove', e => { if (isDragging) handleInteraction(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+canvas.addEventListener('touchmove', e => { if (isDragging && e.touches.length) handleInteraction(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
 canvas.addEventListener('touchend', () => isDragging = false);
 
 // ─── UI ──────────────────────────────────────────────────────
@@ -528,6 +635,7 @@ function startGame() {
     titleScreen.classList.add('hidden');
     gameHud.classList.remove('hidden');
     cardGroup.visible = true;
+    layoutCards();
 }
 
 function showSuccess() {
@@ -537,16 +645,13 @@ function showSuccess() {
 }
 
 function restart() {
-    cards.forEach((card, i) => {
+    cards.forEach(card => {
         card.absorbed = false;
         card.mesh.visible = true;
         card.mesh.material.opacity = 0.96;
         card.mesh.scale.setScalar(1);
-        const angle = (i - 2.5) * 0.42;
-        card.mesh.position.x = Math.sin(angle) * 3.8;
-        card.mesh.position.y = Math.cos(angle) * 0.9 - 0.4;
-        card.mesh.position.z = -0.8 + Math.random() * 1.2;
     });
+    layoutCards();
     absorbedCount = 0;
     progress = 0;
     updateHUD();
@@ -560,9 +665,9 @@ const clock = new THREE.Clock();
 function animate() {
     requestAnimationFrame(animate);
     const t = clock.getElapsedTime();
-    
+
     stars.rotation.y = Math.sin(t * 0.07) * 0.018;
-    
+
     const dArr = dust.geometry.attributes.position.array;
     const intensity = 0.4 + progress * 3.2;
     for (let i = 0; i < DUST_COUNT; i++) {
@@ -576,25 +681,34 @@ function animate() {
     }
     dust.geometry.attributes.position.needsUpdate = true;
     dustMat.opacity = 0.18 + progress * 0.42;
-    
+
     cards.forEach((card, i) => {
         if (card.absorbed) return;
         card.mesh.position.y = card.originalY + Math.sin(t * 1.2 + i) * 0.08;
         card.mesh.rotation.z = Math.sin(t * 0.6 + i) * 0.009;
     });
-    
+
     orb.scale.setScalar(1 + Math.sin(t * 2.8) * 0.07);
     orb.material.emissiveIntensity = 0.6 + Math.sin(t * 3.4) * 0.25;
-    
+
     renderer.render(scene, camera);
 }
 animate();
 
 // ─── Resize ─────────────────────────────────────────────────
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
+function onResize() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    camera.aspect = w / h;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(w, h);
+    layoutCards();
+}
+
+window.addEventListener('resize', onResize);
+window.addEventListener('orientationchange', () => {
+    setTimeout(onResize, 120);
 });
 </script>
 </body>
