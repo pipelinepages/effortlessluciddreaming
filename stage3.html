@@ -1782,7 +1782,7 @@ function createDream(canvas) {
     let extra = 0;
     /* ---- Lightness-driven screen brightness (tightened range) ---- */
     const EXPOSURE_DIM = 0.92;    // starts at a comfortable level
-    const EXPOSURE_BRIGHT = 1.22; // only a gentle lift at 100% Lightness
+    const EXPOSURE_BRIGHT = 1.02; // only a gentle lift at 100% Lightness
     let exposureTrim = 1;         // per-scene multiplier (epilogue dims a touch)
     let glowLevel = 0;            // smoothed 0..1 used for the DOM brightness layer
     const PHASES = [
@@ -2063,7 +2063,7 @@ function createDream(canvas) {
         const glowGoal = lightness * exposureTrim;
         glowLevel += (glowGoal - glowLevel) * (1 - Math.exp(-dt * 1.6));
         if (brightnessEl)
-            brightnessEl.style.opacity = (glowLevel * 0.16).toFixed(3);
+            brightnessEl.style.opacity = (glowLevel * 0.12).toFixed(3);
         if (vignetteEl)
             vignetteEl.style.opacity = (1 - glowLevel * 0.3).toFixed(3);
 
